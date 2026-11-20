@@ -305,3 +305,101 @@ pub fn import(c: &mut Connection, e: &Export) -> Result<ImportSummary> {
         removed,
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    /// A fresh database file in the temp dir, removed when dropped.
+    struct TempDb(PathBuf);
+    impl TempDb {
+        fn new(name: &str) -> (Self, Connection) {
+            let path = std::env::temp_dir().join(format!("musiclify-test-{name}-{}-{}.db", std::process::id(), db::now_ms()));
+            let conn = db::open(&path).expect("open db");
+            (TempDb(path), conn)
+        }
+    }
+    impl Drop for TempDb {
+        fn drop(&mut self) {
+            for ext in ["", "-wal", "-shm"] {
+                let _ = std::fs::remove_file(format!("{}{ext}", self.0.display()));
+            }
+        }
+    }
+
+    fn song(id: i64, title: &str) -> Song {
+        Song {
+            id,
+            title: title.into(),
+            artist: "Artist".into(),
+            artist_id: 1,
+            album: "Album".into(),
+            cover: String::new(),
+            cover_big: String::new(),
+            duration_sec: 180,
+            youtube_id: None,
+            liked: false,
+            liked_at: None,
+            downloaded: false,
+        }
+    }
+
+    /// Exports and imports through JSON, exactly like the wire format between devices.
+    fn send(from: &Connection, to: &mut Connection) -> ImportSummary {
+        let json = serde_json::to_string(&export(from).unwrap()).unwrap();
+        import(to, &serde_json::from_str(&json).unwrap()).unwrap()
+    }
+
+    #[test]
+    fn likes_and_playlists_reach_the_other_device() {
+        let (_a, a) = TempDb::new("a");
+        let (_b, mut b) = TempDb::new("b");
+        db::insert_songs(&a, &[song(1, "First"), song(2, "Second")]).unwrap();
+        db::toggle_like(&a, 1).unwrap();
+        let pid = db::create_playlist(&a, "Road trip", db::now_ms()).unwrap();
+        db::add_to_playlist(&a, pid, 2, db::now_ms()).unwrap();
+
+        send(&a, &mut b);
+
+        let liked: Vec<i64> = db::liked(&b).unwrap().iter().map(|s| s.id).collect();
+        assert_eq!(liked, vec![1]);
+        let lists = db::playlists(&b).unwrap();
+        assert_eq!(lists.len(), 1);
+        assert_eq!(lists[0].name, "Road trip");
+        let in_list: Vec<i64> = db::playlist_songs(&b, lists[0].id).unwrap().iter().map(|s| s.id).collect();
+        assert_eq!(in_list, vec![2]);
+    }
+
+    #[test]
+    fn importing_twice_does_not_duplicate() {
+        let (_a, a) = TempDb::new("dup-a");
+        let (_b, mut b) = TempDb::new("dup-b");
+        db::insert_songs(&a, &[song(1, "First")]).unwrap();
+        db::toggle_like(&a, 1).unwrap();
+        let pid = db::create_playlist(&a, "Mix", db::now_ms()).unwrap();
+        db::add_to_playlist(&a, pid, 1, db::now_ms()).unwrap();
+
+        send(&a, &mut b);
+        send(&a, &mut b);
+
+        assert_eq!(db::liked(&b).unwrap().len(), 1);
+        assert_eq!(db::playlists(&b).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn an_unlike_syncs_as_a_deletion() {
+        let (_a, a) = TempDb::new("unlike-a");
+        let (_b, mut b) = TempDb::new("unlike-b");
+        db::insert_songs(&a, &[song(1, "First")]).unwrap();
+        db::toggle_like(&a, 1).unwrap();
+        send(&a, &mut b);
+        assert_eq!(db::liked(&b).unwrap().len(), 1);
+
+        std::thread::sleep(std::time::Duration::from_millis(5)); // the un-like must be newer than the like
+        db::toggle_like(&a, 1).unwrap();
+        send(&a, &mut b);
+
+        assert!(db::liked(&b).unwrap().is_empty(), "un-like on A should remove the like on B");
+    }
+}

@@ -188,3 +188,32 @@ pub async fn download(
     let _ = tokio::fs::remove_file(&dur_file).await;
     Ok(Downloaded { ext: ext.to_string(), duration })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn clean_title_strips_features_and_versions() {
+        assert_eq!(clean_title("One Dance (feat. Wizkid & Kyla)"), "One Dance");
+        assert_eq!(clean_title("Hey Jude - Remastered 2015"), "Hey Jude");
+        assert_eq!(clean_title("Song [Live]"), "Song");
+        assert_eq!(clean_title("Plain Title"), "Plain Title");
+    }
+
+    #[test]
+    fn duration_matching_allows_ten_seconds_and_unknowns() {
+        assert!(duration_matches(200, 205));
+        assert!(duration_matches(200, 210));
+        assert!(!duration_matches(200, 215));
+        assert!(duration_matches(0, 200), "unknown video length should not reject");
+        assert!(duration_matches(200, 0), "unknown song length should not reject");
+    }
+
+    #[test]
+    fn detect_ext_reads_container_magic() {
+        assert_eq!(detect_ext(b"\0\0\0\x20ftypM4A "), "m4a");
+        assert_eq!(detect_ext(&[0x1A, 0x45, 0xDF, 0xA3, 0, 0, 0, 0]), "webm");
+        assert_eq!(detect_ext(b"xx"), "m4a");
+    }
+}

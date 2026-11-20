@@ -67,14 +67,16 @@ Per platform:
 
 | Area | Conventions | Check before pushing |
 |---|---|---|
-| Android (Kotlin) | [Kotlin coding conventions](https://kotlinlang.org/docs/coding-conventions.html). UI state lives in `AppViewModel`; composables stay stateless where practical. Room schema changes need a migration and an exported schema in `app/schemas/`. | `./gradlew assembleDebug` |
-| Desktop UI (TypeScript/React) | Strict TypeScript, function components and hooks, no `any` without a reason. | `npm run build` |
-| Desktop backend (Rust) | `rustfmt` defaults, no new `unwrap()` on user/network data. | `cargo check` in `src-tauri/` |
+| Android (Kotlin) | [Kotlin coding conventions](https://kotlinlang.org/docs/coding-conventions.html). UI state lives in `AppViewModel`; composables stay stateless where practical. Room schema changes need a migration and an exported schema in `app/schemas/`. | `./gradlew assembleDebug testDebugUnitTest` |
+| Desktop UI (TypeScript/React) | Strict TypeScript, function components and hooks, no `any` without a reason. | `npm test && npm run build` |
+| Desktop backend (Rust) | `rustfmt` defaults, no new `unwrap()` on user/network data. | `cargo test` in `src-tauri/` |
 | Website (Next.js) | ESLint config in the repo. | `npm run lint && npm run build` |
 
 ## Continuous integration
 
-Every push and PR to `main` runs `.github/workflows/ci.yml`: Android build, desktop TypeScript build, desktop Rust check, and website lint + build. A PR can't merge while CI is red.
+Every push and PR to `main` runs `.github/workflows/ci.yml`: Android build and unit tests, desktop UI tests and build, desktop Rust tests, and website lint + build. A PR can't merge while CI is red.
+
+**Tests:** new logic should come with a unit test. Pure helpers (parsing, matching, version checks) and the sync format are the priority: a sync bug can lose someone's library. Android tests live in `app/src/test/`, desktop UI tests in `src/__tests__/`, and Rust tests in a `#[cfg(test)] mod tests` at the bottom of the file they test.
 
 ## Releases
 

@@ -47,7 +47,7 @@ jobs:
           java-version: 17
       - uses: gradle/actions/setup-gradle@v4
       - run: chmod +x gradlew
-      - run: ./gradlew assembleDebug --stacktrace
+      - run: ./gradlew assembleDebug testDebugUnitTest --stacktrace
 
   desktop-ui:
     name: Desktop UI build
@@ -65,10 +65,11 @@ jobs:
           cache: npm
           cache-dependency-path: apps/desktop/package-lock.json
       - run: npm ci
+      - run: npm test
       - run: npm run build
 
   desktop-rust:
-    name: Desktop Rust check
+    name: Desktop Rust tests
     needs: changes
     if: needs.changes.outputs.desktop == 'true'
     runs-on: windows-latest
@@ -88,7 +89,7 @@ jobs:
           mkdir -p binaries ../dist
           touch binaries/yt-dlp-x86_64-pc-windows-msvc.exe
           [ -f ../dist/index.html ] || echo '<!doctype html>' > ../dist/index.html
-      - run: cargo check --locked
+      - run: cargo test --locked
 
   website:
     name: Website lint and build
