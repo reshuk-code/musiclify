@@ -125,7 +125,8 @@ function useBeat(audio: HTMLAudioElement, target: RefObject<HTMLDivElement | nul
   }, [audio, target, active]);
 }
 
-export function Ambient({ intense = false }: { intense?: boolean }) {
+/** `contained` renders inside its parent (the full-screen player) instead of behind the whole app. */
+export function Ambient({ intense = false, contained = false }: { intense?: boolean; contained?: boolean }) {
   const p = usePlayer();
   const enabled = useAmbientEnabled();
   const ref = useRef<HTMLDivElement>(null);
@@ -133,7 +134,7 @@ export function Ambient({ intense = false }: { intense?: boolean }) {
   useBeat(p.audioEl, ref, enabled && p.playing);
   if (!enabled || !p.current) return null;
   return (
-    <div ref={ref} className={`ambient ${intense ? "intense" : ""} ${p.playing ? "playing" : ""}`} aria-hidden
+    <div ref={ref} className={`ambient ${intense ? "intense" : ""} ${contained ? "contained" : ""} ${p.playing ? "playing" : ""}`} aria-hidden
       style={{ ["--c1" as any]: c1, ["--c2" as any]: c2, ["--c3" as any]: c3 }} />
   );
 }

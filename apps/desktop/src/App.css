@@ -429,6 +429,7 @@ input[type="range"]:hover::-webkit-slider-thumb { opacity: 1; }
 .ambient:not(.playing) { opacity: 0.14; }
 .ambient.intense { opacity: calc(0.45 + var(--beat) * 0.4); }
 .ambient.intense:not(.playing) { opacity: 0.3; }
-/* Let the glow through the full-screen player. */
-.np { background: rgba(14, 16, 20, 0.62); }
+/* Inside the full-screen player: the player stays opaque (hiding the page) and carries its own glow. */
+.np { position: relative; isolation: isolate; }
+.ambient.contained { position: absolute; inset: 0; z-index: -1; filter: blur(70px) saturate(1.25); }
 @media (prefers-reduced-motion: reduce) { .ambient { transform: none; transition: opacity .3s; } }

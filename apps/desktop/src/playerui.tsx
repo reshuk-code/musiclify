@@ -7,6 +7,7 @@ import { formatTime, lyricsFor, type Lyrics } from "./api";
 import { Cover } from "./components";
 import { usePlayer } from "./player";
 import { useStore } from "./store";
+import { Ambient } from "./ambient";
 
 export type Panel = "lyrics" | "queue" | null;
 
@@ -130,6 +131,7 @@ export function NowPlayingView({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="np" role="dialog" aria-label="Now playing">
+      <Ambient intense contained />
       <header className="np-head">
         <button className="icon-btn round-bg" onClick={onClose} aria-label="Close now playing"><ChevronDown size={22} /></button>
         <div className="np-from"><span className="kicker">Playing from</span><b>Your queue</b></div>

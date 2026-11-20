@@ -106,7 +106,7 @@ function Main() {
 
   return (
     <div className={`app ${panel && !full ? "with-panel" : ""} ${rail ? "rail" : ""}`}>
-      <Ambient intense={full} />
+      {!full && <Ambient />}
       <aside className="sidebar">
         <div className="brand">
           <img src="/icon.png" alt="" width={28} height={28} /><span className="nav-label">Musiclify</span>
