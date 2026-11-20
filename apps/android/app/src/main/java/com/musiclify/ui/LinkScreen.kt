@@ -26,18 +26,16 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.google.mlkit.vision.barcode.common.Barcode
-import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
-import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
+import androidx.activity.compose.rememberLauncherForActivityResult
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
 import com.musiclify.MusiclifyApp
 import com.musiclify.data.ImportSummary
 import com.musiclify.engine.LinkTarget
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 
 private sealed interface LinkState {
     data object Idle : LinkState
@@ -53,19 +51,27 @@ private sealed interface LinkState {
  */
 @Composable
 fun LinkScreen(vm: AppViewModel, receiveOnly: Boolean, onBack: () -> Unit, onImported: (ImportSummary) -> Unit = {}) {
-    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var state by remember { mutableStateOf<LinkState>(LinkState.Idle) }
     val link = MusiclifyApp.graph.link
 
-    fun scan() = scope.launch {
+    // ZXing asks for the camera permission itself the first time it opens.
+    val scanner = rememberLauncherForActivityResult(ScanContract()) { result ->
+        val raw = result.contents ?: return@rememberLauncherForActivityResult // cancelled
+        state = LinkTarget.parse(raw)?.let { LinkState.Scanned(it) }
+            ?: LinkState.Failed("That isn't a Musiclify link code. Open Settings → Link a device on your PC and scan the code shown there.")
+    }
+
+    fun scan() {
         try {
-            val options = GmsBarcodeScannerOptions.Builder().setBarcodeFormats(Barcode.FORMAT_QR_CODE).build()
-            val raw = GmsBarcodeScanning.getClient(context, options).startScan().await().rawValue.orEmpty()
-            state = LinkTarget.parse(raw)?.let { LinkState.Scanned(it) }
-                ?: LinkState.Failed("That isn't a Musiclify link code. Open Settings → Link a device on your PC and scan the code shown there.")
+            scanner.launch(
+                ScanOptions()
+                    .setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+                    .setPrompt("Scan the QR code shown on your PC")
+                    .setBeepEnabled(false)
+                    .setOrientationLocked(false),
+            )
         } catch (e: Exception) {
-            if (e is kotlinx.coroutines.CancellationException) throw e
             state = LinkState.Failed("Couldn't open the scanner: ${e.message}")
         }
     }

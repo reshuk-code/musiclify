@@ -1,0 +1,2 @@
+- Your mix opens as a song list; Play pauses and resumes the mix
+- Fresher mix: rebuilt when you come back to Home, change favourite artists, or tap New mix

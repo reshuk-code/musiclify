@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.6.0.schema.json
+PackageIdentifier: ReshukCode.Musiclify
+PackageVersion: 0.1.1
+PackageLocale: en-US
+Publisher: reshuk-code
+PublisherUrl: https://github.com/reshuk-code
+PublisherSupportUrl: https://github.com/reshuk-code/musiclify/issues
+Author: reshuk-code
+PackageName: Musiclify
+PackageUrl: https://musiclify.vercel.app
+License: GPL-3.0-or-later
+LicenseUrl: https://github.com/reshuk-code/musiclify/blob/main/LICENSE
+ShortDescription: Free, open-source music player with synced lyrics, an encrypted offline library and phone-to-PC handoff.
+Description: |-
+  Musiclify is a local-first music player for Windows and Android. Search any song, sing along with
+  synced lyrics, keep an encrypted offline library, and hand playback between your phone and PC.
+  No account, no ads, no tracking.
+Moniker: musiclify
+Tags:
+  - music
+  - music-player
+  - lyrics
+  - offline
+  - open-source
+  - privacy
+ReleaseNotesUrl: https://github.com/reshuk-code/musiclify/releases/tag/desktop-v0.1.1
+ManifestType: defaultLocale
+ManifestVersion: 1.6.0

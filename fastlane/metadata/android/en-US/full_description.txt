@@ -1,0 +1,15 @@
+<p>Musiclify is a free, open-source music player that keeps everything on your own devices. There is no account, no ads and no tracking.</p>
+
+<p>Search any song or artist and start listening. Song info, covers and charts come from Deezer, and audio is fetched on your device.</p>
+
+<p><b>Features</b></p>
+<ul>
+<li><b>Synced lyrics</b> that scroll line by line. Tap any line to jump to it.</li>
+<li><b>Your mix</b>: a personal mix built from the artists you follow.</li>
+<li><b>Encrypted offline library</b>: songs you play are saved encrypted with a key held by Android Keystore, and keep playing without internet.</li>
+<li><b>Phone and PC handoff</b>: link once with a QR code, then move playback between your phone and the Musiclify desktop app at the same second.</li>
+<li><b>Sync without a cloud</b>: likes, playlists, history and favourite artists sync directly over your Wi-Fi.</li>
+<li>Playlists, liked songs, queue, shuffle, repeat and a home feed with more from your favourite artists.</li>
+</ul>
+
+<p>Musiclify is for personal listening. It does not host, redistribute or share any audio.</p>
