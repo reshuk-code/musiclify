@@ -16,8 +16,8 @@ android {
         applicationId = "com.musiclify"
         minSdk = 26
         targetSdk = 36
-        versionCode = 4
-        versionName = "0.4"
+        versionCode = 5
+        versionName = "0.5"
 
         // Shared song-match cache (services/matchcache). Forks can point this at their own
         // deployment with -PmatchCacheUrl=..., or disable it with -PmatchCacheUrl=

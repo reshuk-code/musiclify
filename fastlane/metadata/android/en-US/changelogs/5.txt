@@ -1,0 +1,7 @@
+- Ambient light: a glow in the song's cover colours that pulses with the beat
+- Glass home-screen widget with play, pause and skip
+- Lyrics on the lock screen and in the notification
+- Sleep timer: "End of this song"
+- Get notified when a new version is out
+- QR scanning is now fully open source (no Google Play Services)
+- Much smaller app

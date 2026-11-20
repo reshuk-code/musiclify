@@ -34,8 +34,11 @@ export async function checkForUpdate(current: string): Promise<AppUpdate | null>
     if (r.draft || r.prerelease || !String(r.tag_name).startsWith(TAG_PREFIX)) continue;
     const version = String(r.tag_name).slice(TAG_PREFIX.length);
     if (compareVersions(version, current) <= 0) return null;
-    const exe = (r.assets ?? []).find((a: any) => String(a.name).endsWith(".exe"));
-    return { version, url: exe?.browser_download_url ?? r.html_url };
+    // The installer for this OS: .dmg on macOS, .AppImage on Linux, the .exe setup on Windows.
+    const ua = navigator.userAgent;
+    const ext = /Mac/i.test(ua) ? ".dmg" : /Linux/i.test(ua) ? ".AppImage" : ".exe";
+    const asset = (r.assets ?? []).find((a: any) => String(a.name).endsWith(ext));
+    return { version, url: asset?.browser_download_url ?? r.html_url };
   }
   return null;
 }
