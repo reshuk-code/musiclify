@@ -16,6 +16,10 @@ apps/android/.kotlin/
 apps/android/build/
 apps/android/app/build/
 apps/android/local.properties
+# Release signing key and its passwords: never commit (back them up somewhere safe)
+apps/android/keystore.properties
+*.jks
+*.keystore
 apps/android/.idea/
 
 # ---- Desktop (Tauri) ----

@@ -1,3 +1,4 @@
+import java.util.Properties
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -23,6 +24,52 @@ android {
         val matchCacheUrl = (project.findProperty("matchCacheUrl") as String?)
             ?: "https://br-weathered-scene-bibw5h1p-matchcache.compute.c-5.ap-southeast-1.aws.neon.tech"
         buildConfigField("String", "MATCH_CACHE_URL", "\"$matchCacheUrl\"")
+        manifestPlaceholders["appLabel"] = "Musiclify"
+    }
+
+    // Release signing comes from apps/android/keystore.properties (local, gitignored) or, in CI,
+    // from MUSICLIFY_KEYSTORE_* environment variables. Without either, release builds are unsigned.
+    val keystoreProps = Properties().apply {
+        val f = rootProject.file("keystore.properties")
+        if (f.exists()) f.inputStream().use { load(it) }
+    }
+    fun signingValue(key: String, env: String): String? =
+        keystoreProps.getProperty(key) ?: System.getenv(env)?.takeIf { it.isNotBlank() }
+
+    val releaseStoreFile = signingValue("storeFile", "MUSICLIFY_KEYSTORE_FILE")
+    signingConfigs {
+        if (releaseStoreFile != null) {
+            create("release") {
+                storeFile = file(releaseStoreFile)
+                storePassword = signingValue("storePassword", "MUSICLIFY_KEYSTORE_PASSWORD")
+                keyAlias = signingValue("keyAlias", "MUSICLIFY_KEY_ALIAS")
+                keyPassword = signingValue("keyPassword", "MUSICLIFY_KEY_PASSWORD")
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = signingConfigs.findByName("release")
+            // QA: `-PqaBuild` installs a release build next to the real one (own id and name).
+            if (project.hasProperty("qaBuild")) {
+                applicationIdSuffix = ".qa"
+                manifestPlaceholders["appLabel"] = "Musiclify QA"
+            }
+        }
+        debug {
+            // Lets a development build sit next to the installed release build.
+            // `-PlegacyDebugId` keeps the plain id instead, to update an install from before 0.5
+            // (those builds were debug-signed as com.musiclify) without losing its library.
+            if (!project.hasProperty("legacyDebugId")) {
+                applicationIdSuffix = ".debug"
+                manifestPlaceholders["appLabel"] = "Musiclify Dev"
+            }
+            versionNameSuffix = "-debug"
+        }
     }
 
     buildFeatures {
@@ -84,7 +131,11 @@ dependencies {
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-guava:1.10.2")
 
-    // QR scanning for device linking (Google code scanner: no camera permission needed)
-    implementation("com.google.android.gms:play-services-code-scanner:16.1.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.10.2")
+    // QR scanning for device linking. ZXing is open source (Apache-2.0), so the app has no
+    // Google Play Services dependency and can ship on F-Droid and de-Googled phones.
+    implementation("com.journeyapps:zxing-android-embedded:4.3.0")
+
+    // Unit tests (JVM). Android's own org.json is a stub off-device, so tests use the real one.
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20250517")
 }
