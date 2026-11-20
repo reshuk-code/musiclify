@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Themed-icon layer (Android 13+): the Musiclify beamed note, same shape as tools/make_icon.py,
+     scaled into the adaptive icon safe zone. The launcher tints it. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="1024"
+    android:viewportHeight="1024">
+    <group
+        android:pivotX="512"
+        android:pivotY="512"
+        android:scaleX="0.62"
+        android:scaleY="0.62">
+        <path android:fillColor="#FF000000" android:pathData="M250,680 a100,80 0 1,0 200,0 a100,80 0 1,0 -200,0 Z" />
+        <path android:fillColor="#FF000000" android:pathData="M560,620 a100,80 0 1,0 200,0 a100,80 0 1,0 -200,0 Z" />
+        <path android:fillColor="#FF000000" android:pathData="M410,300 L450,300 L450,690 L410,690 Z" />
+        <path android:fillColor="#FF000000" android:pathData="M720,240 L760,240 L760,630 L720,630 Z" />
+        <path android:fillColor="#FF000000" android:pathData="M410,300 L760,240 L760,330 L410,390 Z" />
+    </group>
+</vector>

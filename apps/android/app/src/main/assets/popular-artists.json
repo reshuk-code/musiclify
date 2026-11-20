@@ -1,0 +1,308 @@
+[
+    {
+        "id":  12246,
+        "name":  "Taylor Swift",
+        "picture":  "https://cdn-images.dzcdn.net/images/artist/cc2495870fe1a792ad0cdb05501ad5ec/500x500-000000-80-0-0.jpg",
+        "genre":  "Pop"
+    },
+    {
+        "id":  4050205,
+        "name":  "The Weeknd",
+        "picture":  "https://cdn-images.dzcdn.net/images/artist/581693b4724a7fcfa754455101e13a44/500x500-000000-80-0-0.jpg",
+        "genre":  "Pop"
+    },
+    {
+        "id":  384236,
+        "name":  "Ed Sheeran",
+        "picture":  "https://cdn-images.dzcdn.net/images/artist/d6bb84390641d8ae9118228d9544e53d/500x500-000000-80-0-0.jpg",
+        "genre":  "Pop"
+    },
+    {
+        "id":  9635624,
+        "name":  "Billie Eilish",
+        "picture":  "https://cdn-images.dzcdn.net/images/artist/8eab1a9a644889aabaca1e193e05f984/500x500-000000-80-0-0.jpg",
+        "genre":  "Pop"
+    },
+    {
+        "id":  8706544,
+        "name":  "Dua Lipa",
+        "picture":  "https://cdn-images.dzcdn.net/images/artist/877872aaf75694f11d53c318700ab2b5/500x500-000000-80-0-0.jpg",
+        "genre":  "Pop"
+    },
+    {
+        "id":  11152580,
+        "name":  "Olivia Rodrigo",
+        "picture":  "https://cdn-images.dzcdn.net/images/artist/2c9e480317183c037eaebcd7ba96daf4/500x500-000000-80-0-0.jpg",
+        "genre":  "Pop"
+    },
+    {
+        "id":  1562681,
+        "name":  "Ariana Grande",
+        "picture":  "https://cdn-images.dzcdn.net/images/artist/721d8fab84b315502de422b8d0901509/500x500-000000-80-0-0.jpg",
+        "genre":  "Pop"
+    },
+    {
+        "id":  429675,
+        "name":  "Bruno Mars",
+        "picture":  "https://cdn-images.dzcdn.net/images/artist/90f0b5b11df4f87ee878f38569b5995b/500x500-000000-80-0-0.jpg",
+        "genre":  "Pop"
+    },
+    {
+        "id":  1176900,
+        "name":  "Sabrina Carpenter",
+        "picture":  "https://cdn-images.dzcdn.net/images/artist/4a9cdc7737e2a0e59b4917b47884b859/500x500-000000-80-0-0.jpg",
+        "genre":  "Pop"
+    },
+    {
+        "id":  5313805,
+        "name":  "Harry Styles",
+        "picture":  "https://cdn-images.dzcdn.net/images/artist/1151dba9b3edc0633adf35b64c21713f/500x500-000000-80-0-0.jpg",
+        "genre":  "Pop"
+    },
+    {
+        "id":  246791,
+        "name":  "Drake",
+        "picture":  "https://cdn-images.dzcdn.net/images/artist/eb0ed5b21d1ea5af021fc074ded0e91f/500x500-000000-80-0-0.jpg",
+        "genre":  "Hip-hop"
+    },
+    {
+        "id":  525046,
+        "name":  "Kendrick Lamar",
+        "picture":  "https://cdn-images.dzcdn.net/images/artist/be0a7c550567f4af0ed202d7235b74d6/500x500-000000-80-0-0.jpg",
+        "genre":  "Hip-hop"
+    },
+    {
+        "id":  4495513,
+        "name":  "Travis Scott",
+        "picture":  "https://cdn-images.dzcdn.net/images/artist/8d8316146026d7e6ce377e314536df62/500x500-000000-80-0-0.jpg",
+        "genre":  "Hip-hop"
+    },
+    {
+        "id":  13,
+        "name":  "Eminem",
+        "picture":  "https://cdn-images.dzcdn.net/images/artist/0f30bbd33a680030054af004d698d6ac/500x500-000000-80-0-0.jpg",
+        "genre":  "Hip-hop"
+    },
+    {
+        "id":  230,
+        "name":  "Kanye West",
+        "picture":  "https://cdn-images.dzcdn.net/images/artist/bb76c2ee3b068726ab4c37b0aabdb57a/500x500-000000-80-0-0.jpg",
+        "genre":  "Hip-hop"
+    },
+    {
+        "id":  339209,
+        "name":  "J. Cole",
+        "picture":  "https://cdn-images.dzcdn.net/images/artist/dc8d97f19855c8ea3f15ee6db784198e/500x500-000000-80-0-0.jpg",
+        "genre":  "Hip-hop"
+    },
+    {
+        "id":  7543848,
+        "name":  "Post Malone",
+        "picture":  "https://cdn-images.dzcdn.net/images/artist/a5a8cca44e7eab2db7d44e039bed2574/500x500-000000-80-0-0.jpg",
+        "genre":  "Hip-hop"
+    },
+    {
+        "id":  14456487,
+        "name":  "Juice Wrld",
+        "picture":  "https://cdn-images.dzcdn.net/images/artist/2ecf2968fbbc8eb042b241b8e60e5d7e/500x500-000000-80-0-0.jpg",
+        "genre":  "Hip-hop"
+    },
+    {
+        "id":  892,
+        "name":  "Coldplay",
+        "picture":  "https://cdn-images.dzcdn.net/images/artist/3087954bca22f306324912e5ac8375c3/500x500-000000-80-0-0.jpg",
+        "genre":  "Rock"
+    },
+    {
+        "id":  416239,
+        "name":  "Imagine Dragons",
+        "picture":  "https://cdn-images.dzcdn.net/images/artist/1ba025c23cae3dee14b51152990285fc/500x500-000000-80-0-0.jpg",
+        "genre":  "Rock"
+    },
+    {
+        "id":  1182,
+        "name":  "Arctic Monkeys",
+        "picture":  "https://cdn-images.dzcdn.net/images/artist/6c03e4c7c36800897fd468633286db24/500x500-000000-80-0-0.jpg",
+        "genre":  "Rock"
+    },
+    {
+        "id":  92,
+        "name":  "Linkin Park",
+        "picture":  "https://cdn-images.dzcdn.net/images/artist/4886905210739af3438990897bad3a98/500x500-000000-80-0-0.jpg",
+        "genre":  "Rock"
+    },
+    {
+        "id":  412,
+        "name":  "Queen",
+        "picture":  "https://cdn-images.dzcdn.net/images/artist/71eeb9e2eeb375df35a3c0654a5a01ab/500x500-000000-80-0-0.jpg",
+        "genre":  "Rock"
+    },
+    {
+        "id":  415,
+        "name":  "Nirvana",
+        "picture":  "https://cdn-images.dzcdn.net/images/artist/3ec5542ff520ee74e2befdaba32ef2ef/500x500-000000-80-0-0.jpg",
+        "genre":  "Rock"
+    },
+    {
+        "id":  399,
+        "name":  "Radiohead",
+        "picture":  "https://cdn-images.dzcdn.net/images/artist/0d58cfbc90f2e776608bcdc0c45a4711/500x500-000000-80-0-0.jpg",
+        "genre":  "Rock"
+    },
+    {
+        "id":  182,
+        "name":  "Red Hot Chili Peppers",
+        "picture":  "https://cdn-images.dzcdn.net/images/artist/238f5524a401dfdd5cac685f0f7989bd/500x500-000000-80-0-0.jpg",
+        "genre":  "Rock"
+    },
+    {
+        "id":  5531258,
+        "name":  "SZA",
+        "picture":  "https://cdn-images.dzcdn.net/images/artist/8ced041da2bed70d5715f0860956169b/500x500-000000-80-0-0.jpg",
+        "genre":  "R\u0026B"
+    },
+    {
+        "id":  1350335,
+        "name":  "Frank Ocean",
+        "picture":  "https://cdn-images.dzcdn.net/images/artist/882155c08dc31d6464d6d580083c968c/500x500-000000-80-0-0.jpg",
+        "genre":  "R\u0026B"
+    },
+    {
+        "id":  564,
+        "name":  "Rihanna",
+        "picture":  "https://cdn-images.dzcdn.net/images/artist/b78cdc205fae2641b89208e78b30e1b3/500x500-000000-80-0-0.jpg",
+        "genre":  "R\u0026B"
+    },
+    {
+        "id":  145,
+        "name":  "Beyoncé",
+        "picture":  "https://cdn-images.dzcdn.net/images/artist/0aa9d669be4e7310b8647afae37ffaab/500x500-000000-80-0-0.jpg",
+        "genre":  "R\u0026B"
+    },
+    {
+        "id":  102,
+        "name":  "Chris Brown",
+        "picture":  "https://cdn-images.dzcdn.net/images/artist/0ace078361ed30f1179e3fdba22932af/500x500-000000-80-0-0.jpg",
+        "genre":  "R\u0026B"
+    },
+    {
+        "id":  10583405,
+        "name":  "Bad Bunny",
+        "picture":  "https://cdn-images.dzcdn.net/images/artist/044a3f315b041864887a8dd8709e6926/500x500-000000-80-0-0.jpg",
+        "genre":  "Latin"
+    },
+    {
+        "id":  5297021,
+        "name":  "KAROL G",
+        "picture":  "https://cdn-images.dzcdn.net/images/artist/5b0aab23f8d2856951a92f3a9faf70e3/500x500-000000-80-0-0.jpg",
+        "genre":  "Latin"
+    },
+    {
+        "id":  160,
+        "name":  "Shakira",
+        "picture":  "https://cdn-images.dzcdn.net/images/artist/69c569506a8ff6ab0edfecbd1adf94b0/500x500-000000-80-0-0.jpg",
+        "genre":  "Latin"
+    },
+    {
+        "id":  4860761,
+        "name":  "J Balvin",
+        "picture":  "https://cdn-images.dzcdn.net/images/artist/325eaa46bc25052d0e3d549d60cc8225/500x500-000000-80-0-0.jpg",
+        "genre":  "Latin"
+    },
+    {
+        "id":  6982223,
+        "name":  "BTS",
+        "picture":  "https://cdn-images.dzcdn.net/images/artist/b5c64fa8216ca158e52b4d88bd9388ff/500x500-000000-80-0-0.jpg",
+        "genre":  "K-pop"
+    },
+    {
+        "id":  10803980,
+        "name":  "BLACKPINK",
+        "picture":  "https://cdn-images.dzcdn.net/images/artist/89675729453893a91be35bde691050ff/500x500-000000-80-0-0.jpg",
+        "genre":  "K-pop"
+    },
+    {
+        "id":  178008437,
+        "name":  "NewJeans",
+        "picture":  "https://cdn-images.dzcdn.net/images/artist/0866c2c1d7d00879f5db46ddc1250db8/500x500-000000-80-0-0.jpg",
+        "genre":  "K-pop"
+    },
+    {
+        "id":  13923487,
+        "name":  "Stray Kids",
+        "picture":  "https://cdn-images.dzcdn.net/images/artist/5cba9e96cd7a44955d47ff3d7eb16ef3/500x500-000000-80-0-0.jpg",
+        "genre":  "K-pop"
+    },
+    {
+        "id":  12178,
+        "name":  "Calvin Harris",
+        "picture":  "https://cdn-images.dzcdn.net/images/artist/a53031d02dc2f8a8eb15d117c015d5eb/500x500-000000-80-0-0.jpg",
+        "genre":  "Electronic"
+    },
+    {
+        "id":  542,
+        "name":  "David Guetta",
+        "picture":  "https://cdn-images.dzcdn.net/images/artist/2d527fa03e106ed82a28f161694278d3/500x500-000000-80-0-0.jpg",
+        "genre":  "Electronic"
+    },
+    {
+        "id":  293585,
+        "name":  "Avicii",
+        "picture":  "https://cdn-images.dzcdn.net/images/artist/82e214b0cb39316f4a12a082fded54f6/500x500-000000-80-0-0.jpg",
+        "genre":  "Electronic"
+    },
+    {
+        "id":  7890702,
+        "name":  "Marshmello",
+        "picture":  "https://cdn-images.dzcdn.net/images/artist/31daf06aa7034f829e2e1e7f855f2e60/500x500-000000-80-0-0.jpg",
+        "genre":  "Electronic"
+    },
+    {
+        "id":  3830821,
+        "name":  "Arijit Singh",
+        "picture":  "https://cdn-images.dzcdn.net/images/artist/ac5350cff290edd5b69fa584b8b1bd4f/500x500-000000-80-0-0.jpg",
+        "genre":  "South Asian"
+    },
+    {
+        "id":  98371,
+        "name":  "Shreya Ghoshal",
+        "picture":  "https://cdn-images.dzcdn.net/images/artist/3bb832d37d10ff2affcfa9afdc7c68a0/500x500-000000-80-0-0.jpg",
+        "genre":  "South Asian"
+    },
+    {
+        "id":  491,
+        "name":  "A.R. Rahman",
+        "picture":  "https://cdn-images.dzcdn.net/images/artist/bd34315ef977a62a9e28c1ab19bb8ac4/500x500-000000-80-0-0.jpg",
+        "genre":  "South Asian"
+    },
+    {
+        "id":  1199677,
+        "name":  "Diljit Dosanjh",
+        "picture":  "https://cdn-images.dzcdn.net/images/artist/79b85e695e0ca6529e56bf3b628e92bd/500x500-000000-80-0-0.jpg",
+        "genre":  "South Asian"
+    },
+    {
+        "id":  64116612,
+        "name":  "Anuv Jain",
+        "picture":  "https://cdn-images.dzcdn.net/images/artist/eb0c0e91c8ad621b41178e0d66c81057/500x500-000000-80-0-0.jpg",
+        "genre":  "South Asian"
+    },
+    {
+        "id":  5208987,
+        "name":  "Prateek Kuhad",
+        "picture":  "https://cdn-images.dzcdn.net/images/artist/7f69b3905ae630b3f7bcd826bd2dc46f/500x500-000000-80-0-0.jpg",
+        "genre":  "South Asian"
+    },
+    {
+        "id":  11964861,
+        "name":  "Sajjan Raj Vaidya",
+        "picture":  "https://cdn-images.dzcdn.net/images/artist/82eef81262849d2445c952666fc478e3/500x500-000000-80-0-0.jpg",
+        "genre":  "South Asian"
+    },
+    {
+        "id":  6695979,
+        "name":  "Bipul Chettri",
+        "picture":  "https://cdn-images.dzcdn.net/images/artist/5a63cab003fa9ad19394e85e311a4880/500x500-000000-80-0-0.jpg",
+        "genre":  "South Asian"
+    }
+]
