@@ -177,8 +177,8 @@ fun PlayerScreen(vm: AppViewModel, onClose: () -> Unit, openArtist: (Long) -> Un
                 IconButton(onClick = { menuOpen = true }) { Icon(Lucide.EllipsisVertical, contentDescription = "More options") }
                 DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                     DropdownMenuItem(
-                        text = { Text(if (p.sleepTimerEndsAt != null) "Sleep timer (on)" else "Sleep timer") },
-                        leadingIcon = { Icon(Lucide.Moon, null, tint = if (p.sleepTimerEndsAt != null) Accent else LocalContentColor.current) },
+                        text = { Text(if (p.sleepTimerEndsAt != null || p.sleepAtSongEnd) "Sleep timer (on)" else "Sleep timer") },
+                        leadingIcon = { Icon(Lucide.Moon, null, tint = if (p.sleepTimerEndsAt != null || p.sleepAtSongEnd) Accent else LocalContentColor.current) },
                         onClick = { menuOpen = false; showSleep = true },
                     )
                     if (id !in downloaded) DropdownMenuItem(
@@ -392,13 +392,15 @@ private fun SleepTimerDialog(vm: AppViewModel, onDismiss: () -> Unit) {
                     val mins = ((it - System.currentTimeMillis()) / 60_000).coerceAtLeast(0) + 1
                     Text("Pausing in about $mins min", color = Accent, modifier = Modifier.padding(bottom = 8.dp))
                 }
+                if (p.sleepAtSongEnd) Text("Pausing when this song ends", color = Accent, modifier = Modifier.padding(bottom = 8.dp))
                 listOf(5, 15, 30, 45, 60).forEach { m ->
                     Text("$m minutes", Modifier.fillMaxWidth().clickable { p.setSleepTimer(m); onDismiss() }.padding(vertical = 12.dp))
                 }
+                Text("End of this song", Modifier.fillMaxWidth().clickable { p.setSleepAtSongEnd(); onDismiss() }.padding(vertical = 12.dp))
             }
         },
         confirmButton = {
-            if (p.sleepTimerEndsAt != null) TextButton(onClick = { p.setSleepTimer(null); onDismiss() }) { Text("Turn off") }
+            if (p.sleepTimerEndsAt != null || p.sleepAtSongEnd) TextButton(onClick = { p.setSleepTimer(null); onDismiss() }) { Text("Turn off") }
             else TextButton(onClick = onDismiss) { Text("Close") }
         },
     )

@@ -347,13 +347,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun playNext(song: Song) = viewModelScope.launch { dao.insertSongs(listOf(song)); player.playNext(song) }
     fun addToQueue(song: Song) = viewModelScope.launch { dao.insertSongs(listOf(song)); player.addToQueue(song) }
 
-    suspend fun lyrics(songId: Long): Lyrics {
-        val song = dao.song(songId) ?: return Lyrics.NONE
-        song.lyricsJson?.let { return Lyrics.fromJson(it) }
-        val found = runCatching { graph.lrclib.find(song.artist, song.title, song.durationSec) }.getOrNull() ?: Lyrics.NONE
-        dao.setLyrics(songId, found.toJson())
-        return found
-    }
+    suspend fun lyrics(songId: Long): Lyrics = graph.lyricsFor(songId)
 
     suspend fun songById(id: Long) = dao.song(id)
 
@@ -452,6 +446,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     var checkUpdates by mutableStateOf(graph.prefs.checkUpdates)
         private set
+
+    var lockScreenLyrics by mutableStateOf(graph.prefs.lockScreenLyrics)
+        private set
+
+    fun updateLockScreenLyrics(enabled: Boolean) {
+        graph.prefs.lockScreenLyrics = enabled // the playback service reads it on every tick
+        lockScreenLyrics = enabled
+    }
 
     fun updateCheckUpdates(enabled: Boolean) {
         graph.prefs.checkUpdates = enabled

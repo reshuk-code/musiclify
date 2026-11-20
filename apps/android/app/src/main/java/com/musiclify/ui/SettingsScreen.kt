@@ -89,6 +89,17 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit, editArtists: () -> Unit
                 modifier = Modifier.clickable { vm.updateShareMatches(!vm.shareMatches) },
             )
 
+            Group("Lyrics")
+            ListItem(
+                headlineContent = { Text("Lyrics on lock screen") },
+                supportingContent = {
+                    Text("Show the line being sung on the lock screen and in the notification, in place of the " +
+                        "artist name. Car and Bluetooth displays may show it too.")
+                },
+                trailingContent = { Switch(checked = vm.lockScreenLyrics, onCheckedChange = vm::updateLockScreenLyrics) },
+                modifier = Modifier.clickable { vm.updateLockScreenLyrics(!vm.lockScreenLyrics) },
+            )
+
             Group("Updates")
             ListItem(
                 headlineContent = { Text("Check for updates") },

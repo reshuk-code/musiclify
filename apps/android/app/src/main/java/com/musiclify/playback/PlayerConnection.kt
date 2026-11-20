@@ -3,6 +3,7 @@ package com.musiclify.playback
 import android.content.ComponentName
 import android.content.Context
 import android.net.Uri
+import android.os.Bundle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -61,6 +62,9 @@ class PlayerConnection(context: Context, private val scope: CoroutineScope) {
         private set
     var sleepTimerEndsAt by mutableStateOf<Long?>(null)
         private set
+    /** Sleep timer set to "end of this song". */
+    var sleepAtSongEnd by mutableStateOf(false)
+        private set
 
     private var sleepJob: Job? = null
 
@@ -73,6 +77,12 @@ class PlayerConnection(context: Context, private val scope: CoroutineScope) {
                     override fun onEvents(player: Player, events: Player.Events) = sync()
                     override fun onPlayerError(e: PlaybackException) {
                         error = friendlyError(e)
+                    }
+                    override fun onMediaItemTransition(item: MediaItem?, reason: Int) {
+                        if (sleepAtSongEnd && reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
+                            sleepAtSongEnd = false
+                            controller?.pause()
+                        }
                     }
                 })
             }
@@ -96,7 +106,7 @@ class PlayerConnection(context: Context, private val scope: CoroutineScope) {
         val item = c.currentMediaItem
         currentId = item?.mediaId?.toLongOrNull()
         currentTitle = item?.mediaMetadata?.title?.toString().orEmpty()
-        currentArtist = item?.mediaMetadata?.artist?.toString().orEmpty()
+        currentArtist = item?.mediaMetadata?.realArtist().orEmpty()
         currentArtwork = item?.mediaMetadata?.artworkUri?.toString()
         isPlaying = c.isPlaying
         isBuffering = c.playbackState == Player.STATE_BUFFERING
@@ -105,7 +115,7 @@ class PlayerConnection(context: Context, private val scope: CoroutineScope) {
         queueIndex = c.currentMediaItemIndex
         queue = (0 until c.mediaItemCount).map { i ->
             val m = c.getMediaItemAt(i)
-            QueueItem(m.mediaId.toLong(), m.mediaMetadata.title.toString(), m.mediaMetadata.artist.toString(),
+            QueueItem(m.mediaId.toLong(), m.mediaMetadata.title.toString(), m.mediaMetadata.realArtist(),
                 m.mediaMetadata.artworkUri?.toString())
         }
         if (c.playerError == null && c.playbackState != Player.STATE_IDLE) error = null
@@ -169,9 +179,16 @@ class PlayerConnection(context: Context, private val scope: CoroutineScope) {
         }
     }
 
+    /** Pause when the current song ends (cancels a timed sleep timer). */
+    fun setSleepAtSongEnd() {
+        setSleepTimer(null)
+        sleepAtSongEnd = true
+    }
+
     /** Pause after [minutes]; null cancels the timer. */
     fun setSleepTimer(minutes: Int?) {
         sleepJob?.cancel()
+        sleepAtSongEnd = false
         if (minutes == null) {
             sleepTimerEndsAt = null
             return
@@ -212,6 +229,13 @@ fun Song.toMediaItem(): MediaItem = MediaItem.Builder()
             .setArtist(artist)
             .setAlbumTitle(album)
             .setArtworkUri(Uri.parse(coverBig.ifEmpty { cover }))
+            .setExtras(Bundle().apply { putString(EXTRA_ARTIST, artist) })
             .build()
     )
     .build()
+
+/** Extras key holding the real artist: lock-screen lyrics put the current line in the artist field. */
+const val EXTRA_ARTIST = "musiclify.artist"
+
+/** The song's artist, even while the artist field is showing a lyric line. */
+fun MediaMetadata.realArtist(): String = extras?.getString(EXTRA_ARTIST) ?: artist?.toString().orEmpty()

@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import com.musiclify.data.Deezer
 import com.musiclify.data.LrcLib
+import com.musiclify.data.Lyrics
 import com.musiclify.data.MusicDatabase
 import com.musiclify.data.Prefs
 import com.musiclify.data.Sync
@@ -52,6 +53,15 @@ class Graph(context: Context) {
     val matchCache = MatchCache(http, BuildConfig.MATCH_CACHE_URL) { prefs.shareMatches }
     val resolver = YouTubeResolver(dao, matchCache)
     val engine = MediaEngine(context, keys, resolver, dao, http)
+
+    /** Lyrics for a song: the cached copy, or fetched from LRCLIB once and cached (NONE if there are none). */
+    suspend fun lyricsFor(songId: Long): Lyrics {
+        val song = dao.song(songId) ?: return Lyrics.NONE
+        song.lyricsJson?.let { return Lyrics.fromJson(it) }
+        val found = runCatching { lrclib.find(song.artist, song.title, song.durationSec) }.getOrNull() ?: Lyrics.NONE
+        dao.setLyrics(songId, found.toJson())
+        return found
+    }
 
     init {
         val locale = Locale.getDefault()

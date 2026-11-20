@@ -34,6 +34,7 @@ import kotlinx.coroutines.launch
 class PlaybackService : MediaSessionService() {
 
     private var session: MediaSession? = null
+    private var lyrics: LockScreenLyrics? = null
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     override fun onCreate() {
@@ -50,6 +51,9 @@ class PlaybackService : MediaSessionService() {
             .setWakeMode(C.WAKE_MODE_NETWORK)
             .build()
         player.addListener(PlayerEvents(player))
+        PlayerWidget.started(this)
+        lyrics = LockScreenLyrics(player, scope, enabled = { graph.prefs.lockScreenLyrics }, load = graph::lyricsFor)
+            .also { it.start() }
 
         val openApp = PendingIntent.getActivity(
             this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE,
@@ -68,6 +72,8 @@ class PlaybackService : MediaSessionService() {
     }
 
     override fun onDestroy() {
+        lyrics?.stop()
+        PlayerWidget.stopped(this)
         scope.cancel()
         session?.run {
             player.release()
@@ -90,9 +96,34 @@ class PlaybackService : MediaSessionService() {
     private inner class PlayerEvents(private val player: ExoPlayer) : Player.Listener {
         private val graph = MusiclifyApp.graph
         private var retriedId: Long? = null
+        private var lastId: Long? = null
+        private var widgetKey: String? = null
+
+        override fun onEvents(player: Player, events: Player.Events) {
+            if (events.containsAny(Player.EVENT_MEDIA_ITEM_TRANSITION, Player.EVENT_IS_PLAYING_CHANGED,
+                    Player.EVENT_MEDIA_METADATA_CHANGED)) updateWidget()
+        }
+
+        /** Push song + play state to the home-screen widget (lyric-line metadata changes are skipped). */
+        private fun updateWidget() {
+            val item = player.currentMediaItem ?: return
+            val meta = item.mediaMetadata
+            val key = "${item.mediaId}|${player.isPlaying}"
+            if (key == widgetKey) return
+            widgetKey = key
+            val title = meta.title?.toString().orEmpty()
+            val artist = meta.realArtist()
+            val art = meta.artworkUri?.toString()
+            val playing = player.isPlaying
+            scope.launch(Dispatchers.IO) { PlayerWidget.update(this@PlaybackService, title, artist, art, playing) }
+        }
 
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
             val id = mediaItem?.mediaId?.toLongOrNull() ?: return
+            // Lock-screen lyrics update the current item's metadata, which reports a transition
+            // to the same song: that's not a new play.
+            if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED && id == lastId) return
+            lastId = id
             scope.launch(Dispatchers.IO) { graph.dao.addHistory(HistoryEntry(songId = id, playedAt = System.currentTimeMillis())) }
             prefetchNext()
         }

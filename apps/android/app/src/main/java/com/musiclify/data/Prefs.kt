@@ -40,6 +40,11 @@ class Prefs(context: Context, private val keys: KeyManager) {
             }
         }
 
+    /** Show the current lyric line on the lock screen and notification while a song plays. */
+    var lockScreenLyrics: Boolean
+        get() = sp.getBoolean("lock_screen_lyrics", true)
+        set(value) = sp.edit { putBoolean("lock_screen_lyrics", value) }
+
     /** Check GitHub Releases for a newer version (at most once a day). */
     var checkUpdates: Boolean
         get() = sp.getBoolean("check_updates", true)
