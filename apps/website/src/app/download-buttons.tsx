@@ -1,7 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { Download, Monitor, Smartphone } from "lucide-react";
+import { Download, Monitor, RefreshCw, Smartphone } from "lucide-react";
 import { ANDROID, OTHER_DESKTOP, WINDOWS } from "./downloads";
 
 type Platform = "windows" | "android" | "other";
@@ -53,14 +53,14 @@ export function DownloadCards() {
         <ul className="space-y-1.5 text-sm text-muted">
           {(kind === "windows"
             ? ["If SmartScreen appears: More info → Run anyway (not code-signed yet)", "Allow it on private networks when you first link your phone"]
-            : ["Open the file and allow installing from your browser", "Not on Google Play: install it straight from here",
-              "Coming from 0.4? Sync with your PC, then uninstall 0.4 first: 0.5 is signed with a new release key"]
+            : ["Open the file and allow installing from your browser", "Not on Google Play: install it straight from here"]
           ).map((t) => <li key={t}>• {t}</li>)}
         </ul>
         <a href={d.href} download
           className={`mt-auto inline-flex h-12 items-center justify-center gap-2 rounded-full font-medium transition ${mine ? "bg-accent text-accent-ink hover:brightness-110" : "border border-line hover:border-muted"}`}>
           <Download size={18} strokeWidth={1.5} />{kind === "windows" ? "Download installer" : "Download APK"}
         </a>
+        {kind === "android" && <AndroidUpdate />}
       </div>
     );
   };
@@ -79,5 +79,22 @@ export function DownloadCards() {
         {" "}· <a href="https://github.com/reshuk-code/musiclify/releases" className="underline decoration-line underline-offset-4 hover:text-ink">all releases</a>
       </p>
     </>
+  );
+}
+
+/** For people who already have an older Musiclify: install over it, nothing to uninstall. */
+function AndroidUpdate() {
+  return (
+    <div className="rounded-xl border border-line bg-bg-2 p-4 text-sm">
+      <p className="font-medium text-ink">Already have Musiclify?</p>
+      <p className="mt-1 text-muted">
+        Install {ANDROID.version} over it, from any earlier version. Your liked songs, playlists and downloads stay.
+        Needs Android 9 or newer; on Android 8, sync with your PC and reinstall.
+      </p>
+      <a href={ANDROID.href} download
+        className="mt-3 inline-flex h-10 items-center gap-2 rounded-full bg-accent px-5 font-medium text-accent-ink transition hover:brightness-110">
+        <RefreshCw size={16} strokeWidth={1.75} />Update to {ANDROID.version}
+      </a>
+    </div>
   );
 }

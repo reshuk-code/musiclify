@@ -4,7 +4,7 @@
  */
 const RELEASES = "https://github.com/reshuk-code/musiclify/releases/download";
 const DESKTOP = "0.2.0";
-const ANDROID_VERSION = "0.5";
+const ANDROID_VERSION = "0.5.1";
 
 export const WINDOWS = {
   href: `${RELEASES}/desktop-v${DESKTOP}/Musiclify_${DESKTOP}_x64-setup.exe`,
@@ -16,7 +16,7 @@ export const WINDOWS = {
 export const ANDROID = {
   href: `${RELEASES}/android-v${ANDROID_VERSION}/Musiclify-${ANDROID_VERSION}.apk`,
   version: ANDROID_VERSION,
-  size: "4.3 MB",
+  size: "4.4 MB",
   requires: "Android 8.0 or newer",
 };
 
