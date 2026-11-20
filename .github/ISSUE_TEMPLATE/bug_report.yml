@@ -1,0 +1,49 @@
+name: Bug report
+description: Something isn't working as expected
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for reporting! Please search existing issues first. Security problems go through the Security tab, not here.
+  - type: dropdown
+    id: app
+    attributes:
+      label: App
+      options: [Android, Desktop (Windows), Website, Sync between devices]
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: App version
+      description: Settings → About, or the installer file name
+      placeholder: e.g. desktop 0.1.1 / Android 0.4
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Device and OS
+      placeholder: e.g. Windows 11 / Pixel 7, Android 15
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you expected, and what happened instead
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open Home
+        2. Tap "Your mix"
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Screenshots or logs
+      description: Remove anything personal (cookies, names, IP addresses) before pasting
