@@ -70,6 +70,12 @@ jobs:
           ext=""; [ "${{ runner.os }}" = "Windows" ] && ext=".exe"
           curl -fsSL -o "binaries/yt-dlp-${{ matrix.target }}${ext}" \
             "https://github.com/yt-dlp/yt-dlp/releases/latest/download/${{ matrix.ytdlp }}"
+          # A universal macOS build compiles each architecture separately, and each looks for its
+          # own sidecar. yt-dlp_macos is already a universal binary, so it serves all three names.
+          if [ "${{ runner.os }}" = "macOS" ]; then
+            cp binaries/yt-dlp-universal-apple-darwin binaries/yt-dlp-aarch64-apple-darwin
+            cp binaries/yt-dlp-universal-apple-darwin binaries/yt-dlp-x86_64-apple-darwin
+          fi
           chmod +x binaries/*
 
       - name: Install frontend dependencies
