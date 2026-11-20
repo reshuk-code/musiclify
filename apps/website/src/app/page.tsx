@@ -1,6 +1,6 @@
 import Image from "next/image";
 import type { ReactNode } from "react";
-import { EyeOff, Lock, MicVocal, QrCode, Smartphone, Sparkles, Wifi, X } from "lucide-react";
+import { EyeOff, Lock, Smartphone, Wifi, X } from "lucide-react";
 import { DownloadButtons, DownloadCards } from "./download-buttons";
 
 export default function Home() {
