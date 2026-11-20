@@ -363,6 +363,7 @@ private fun QueueSheet(vm: AppViewModel, onDismiss: () -> Unit) {
             itemsIndexed(p.queue) { i, item ->
                 val isCurrent = i == p.queueIndex
                 ListItem(
+                colors = ClearListItem,
                     headlineContent = {
                         Text(item.title, maxLines = 1, overflow = TextOverflow.Ellipsis,
                             color = if (isCurrent) Accent else MaterialTheme.colorScheme.onSurface,

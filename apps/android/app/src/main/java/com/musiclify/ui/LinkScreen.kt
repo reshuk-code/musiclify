@@ -107,6 +107,7 @@ fun LinkScreen(vm: AppViewModel, receiveOnly: Boolean, onBack: () -> Unit, onImp
 
     Column(Modifier.fillMaxSize().systemBarsPadding()) {
         TopAppBar(
+            colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
             title = { Text("Link a device") },
             navigationIcon = { IconButton(onClick = onBack) { Icon(Lucide.ArrowLeft, contentDescription = "Back") } },
         )

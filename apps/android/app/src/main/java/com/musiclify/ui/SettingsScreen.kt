@@ -14,6 +14,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -39,6 +40,7 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit, editArtists: () -> Unit
 
     Column(Modifier.fillMaxSize()) {
         TopAppBar(
+            colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
             title = { Text("Settings") },
             navigationIcon = { IconButton(onClick = onBack) { Icon(Lucide.ArrowLeft, contentDescription = "Back") } },
         )
@@ -55,6 +57,7 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit, editArtists: () -> Unit
             Group("Devices")
             if (vm.pairedPc != null) {
                 ListItem(
+                colors = ClearListItem,
                     headlineContent = { Text("Synced with ${vm.pairedPc}") },
                     supportingContent = {
                         Text(
@@ -80,6 +83,7 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit, editArtists: () -> Unit
 
             Group("Speed")
             ListItem(
+                colors = ClearListItem,
                 headlineContent = { Text("Shared song matching") },
                 supportingContent = {
                     Text("Songs start faster by reusing which YouTube video matches each song, found by other " +
@@ -91,6 +95,7 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit, editArtists: () -> Unit
 
             Group("Look")
             ListItem(
+                colors = ClearListItem,
                 headlineContent = { Text("Ambient light") },
                 supportingContent = { Text("A soft glow in the colours of the song's cover that pulses with the beat.") },
                 trailingContent = { Switch(checked = vm.ambientLight, onCheckedChange = vm::updateAmbientLight) },
@@ -99,6 +104,7 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit, editArtists: () -> Unit
 
             Group("Lyrics")
             ListItem(
+                colors = ClearListItem,
                 headlineContent = { Text("Lyrics on lock screen") },
                 supportingContent = {
                     Text("Show the line being sung on the lock screen and in the notification, in place of the " +
@@ -110,6 +116,7 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit, editArtists: () -> Unit
 
             Group("Updates")
             ListItem(
+                colors = ClearListItem,
                 headlineContent = { Text("Check for updates") },
                 supportingContent = {
                     Text("Once a day, look for a newer version on GitHub Releases. Only the public release list " +
@@ -189,6 +196,7 @@ private fun Group(title: String) {
 @Composable
 private fun Setting(title: String, subtitle: String, onClick: (() -> Unit)? = null) {
     ListItem(
+                colors = ClearListItem,
         headlineContent = { Text(title) },
         supportingContent = { Text(subtitle) },
         modifier = if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier,

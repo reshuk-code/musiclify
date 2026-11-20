@@ -101,6 +101,7 @@ fun HomeScreen(vm: AppViewModel, actions: SongActions, openSettings: () -> Unit,
                 if (playlists.isEmpty()) item { CenteredMessage("No playlists yet. Add songs from any song's ⋮ menu.") }
                 items(playlists, key = { "p${it.playlist.id}" }) { p ->
                     ListItem(
+                colors = ClearListItem,
                         headlineContent = { Text(p.playlist.name, fontWeight = FontWeight.SemiBold) },
                         supportingContent = { Text("${p.songCount} songs") },
                         leadingContent = { Cover(p.cover, Modifier.size(56.dp), corner = 8) },
@@ -330,6 +331,7 @@ fun LibraryScreen(vm: AppViewModel, open: (String) -> Unit) {
         if (playlists.isEmpty()) item { CenteredMessage("No playlists yet.", "Create playlist") { creating = true } }
         items(playlists, key = { it.playlist.id }) { p ->
             ListItem(
+                colors = ClearListItem,
                 headlineContent = { Text(p.playlist.name, fontWeight = FontWeight.Medium) },
                 supportingContent = { Text("${p.songCount} songs") },
                 leadingContent = { Cover(p.cover, Modifier.size(56.dp), corner = 6) },
@@ -343,6 +345,7 @@ fun LibraryScreen(vm: AppViewModel, open: (String) -> Unit) {
 @Composable
 private fun LibraryEntry(title: String, subtitle: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
     ListItem(
+                colors = ClearListItem,
         headlineContent = { Text(title, fontWeight = FontWeight.Medium) },
         supportingContent = { Text(subtitle) },
         leadingContent = {
@@ -368,6 +371,7 @@ fun SongListScreen(
 ) {
     Column(Modifier.fillMaxSize()) {
         TopAppBar(
+            colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
             title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
             navigationIcon = { IconButton(onClick = onBack) { Icon(Lucide.ArrowLeft, contentDescription = "Back") } },
             actions = { menu?.invoke() },
@@ -439,6 +443,7 @@ fun ArtistScreen(id: Long, vm: AppViewModel, actions: SongActions, onBack: () ->
 
     Column(Modifier.fillMaxSize()) {
         TopAppBar(
+            colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
             title = { Text(page?.first?.name.orEmpty()) },
             navigationIcon = { IconButton(onClick = onBack) { Icon(Lucide.ArrowLeft, contentDescription = "Back") } },
         )

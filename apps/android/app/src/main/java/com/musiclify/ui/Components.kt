@@ -235,6 +235,7 @@ fun AddToPlaylistDialog(song: Song, vm: AppViewModel, onDismiss: () -> Unit) {
             LazyColumn(Modifier.heightIn(max = 360.dp)) {
                 item {
                     ListItem(
+                colors = ClearListItem,
                         headlineContent = { Text("New playlist") },
                         leadingContent = { Icon(Lucide.Plus, contentDescription = null) },
                         modifier = Modifier.clickable { creating = true },
@@ -242,6 +243,7 @@ fun AddToPlaylistDialog(song: Song, vm: AppViewModel, onDismiss: () -> Unit) {
                 }
                 items(playlists, key = { it.playlist.id }) { p ->
                     ListItem(
+                colors = ClearListItem,
                         headlineContent = { Text(p.playlist.name) },
                         supportingContent = { Text("${p.songCount} songs") },
                         leadingContent = { Cover(p.cover, Modifier.size(40.dp), corner = 4) },
@@ -298,3 +300,7 @@ fun formatDuration(ms: Long): String {
     val total = (ms / 1000).coerceAtLeast(0)
     return "%d:%02d".format(total / 60, total % 60)
 }
+
+/** List rows without their own background, so the ambient light shows through behind them. */
+val ClearListItem: ListItemColors
+    @Composable get() = ListItemDefaults.colors(containerColor = Color.Transparent)
