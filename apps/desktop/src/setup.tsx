@@ -15,6 +15,7 @@ import { Modal, NameDialog, Spinner } from "./components";
 import { ArtistPicker } from "./pages";
 import { useStore } from "./store";
 import { setUpdatesEnabled, updatesEnabled } from "./updates";
+import { ambientEnabled, setAmbientEnabled } from "./ambient";
 import { getVersion } from "@tauri-apps/api/app";
 
 // ---------------------------------------------------------------- onboarding
@@ -177,6 +178,7 @@ export function SettingsPage() {
   const [paired, setPaired] = useState<PairedDevice[]>([]);
   const [autostart, setAutostart] = useState(true);
   const [checkUpdates, setCheckUpdates] = useState(updatesEnabled());
+  const [ambient, setAmbient] = useState(ambientEnabled());
   const [version, setVersion] = useState("");
   useEffect(() => { getVersion().then(setVersion).catch(() => {}); }, []);
   useEffect(() => { db.autostartGet().then(setAutostart).catch(() => {}); }, []);
@@ -229,6 +231,12 @@ export function SettingsPage() {
         <button className="btn ghost sm danger" onClick={async () => { if (confirm("Remove all downloaded songs?")) { await db.clearDownloads(); store.refresh(); } }}>Remove all</button>)}
       {row("Listening history", "Clears Recently played",
         <button className="btn ghost sm" onClick={async () => { await db.clearHistory(); store.refresh(); }}>Clear</button>)}
+
+      <h3 className="group">Look</h3>
+      {row("Ambient light",
+        "A soft glow in the colours of the song's cover that pulses with the beat.",
+        <label className="switch"><input type="checkbox" checked={ambient}
+          onChange={(e) => { setAmbientEnabled(e.target.checked); setAmbient(e.target.checked); }} /><span /></label>)}
 
       <h3 className="group">Updates</h3>
       {row("Check for updates",

@@ -113,6 +113,7 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.2")
     implementation("io.coil-kt.coil3:coil-compose:3.3.0")
     implementation("io.coil-kt.coil3:coil-network-okhttp:3.3.0")
+    implementation("androidx.palette:palette-ktx:1.0.0") // ambient light colours from cover art
 
     // Playback
     implementation("androidx.media3:media3-exoplayer:1.8.0")

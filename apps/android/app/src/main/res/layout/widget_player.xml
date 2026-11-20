@@ -1,7 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Home-screen player: artwork, song, and previous / play-pause / next. -->
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <!-- Cover-coloured glow under the glass (tinted from code). -->
+    <ImageView
+        android:id="@+id/widget_glow"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:contentDescription="@null"
+        android:scaleType="fitXY"
+        android:src="@drawable/widget_glow"
+        android:visibility="gone" />
+
+<LinearLayout
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/widget_background"
@@ -86,3 +100,4 @@
         android:contentDescription="@string/widget_next"
         android:src="@drawable/ic_widget_next" />
 </LinearLayout>
+</FrameLayout>

@@ -80,7 +80,9 @@ private fun MainScaffold(vm: AppViewModel) {
     val route = backStack?.destination?.route
 
     Box(Modifier.fillMaxSize()) {
+        AmbientBackground(vm, strength = 0.45f, modifier = Modifier.fillMaxSize())
         Scaffold(
+            containerColor = androidx.compose.ui.graphics.Color.Transparent, // let the ambient light through
             contentWindowInsets = WindowInsets(0),
             bottomBar = {
                 Column {

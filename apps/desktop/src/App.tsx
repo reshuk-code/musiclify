@@ -9,6 +9,7 @@ import { NowPlayingView, PlayerBar, SidePanel, type Panel } from "./playerui";
 import { Onboarding, SettingsPage } from "./setup";
 import { StoreProvider, useStore, type Route } from "./store";
 import { useUpdate } from "./updates";
+import { Ambient } from "./ambient";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import "./App.css";
 
@@ -105,6 +106,7 @@ function Main() {
 
   return (
     <div className={`app ${panel && !full ? "with-panel" : ""} ${rail ? "rail" : ""}`}>
+      <Ambient intense={full} />
       <aside className="sidebar">
         <div className="brand">
           <img src="/icon.png" alt="" width={28} height={28} /><span className="nav-label">Musiclify</span>

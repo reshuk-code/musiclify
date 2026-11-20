@@ -447,6 +447,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     var checkUpdates by mutableStateOf(graph.prefs.checkUpdates)
         private set
 
+    var ambientLight by mutableStateOf(graph.prefs.ambientLight)
+        private set
+
+    fun updateAmbientLight(enabled: Boolean) {
+        graph.prefs.ambientLight = enabled
+        ambientLight = enabled
+    }
+
     var lockScreenLyrics by mutableStateOf(graph.prefs.lockScreenLyrics)
         private set
 

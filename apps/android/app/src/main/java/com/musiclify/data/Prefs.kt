@@ -40,6 +40,11 @@ class Prefs(context: Context, private val keys: KeyManager) {
             }
         }
 
+    /** Cover-coloured glow behind the app that pulses with the beat. */
+    var ambientLight: Boolean
+        get() = sp.getBoolean("ambient_light", true)
+        set(value) = sp.edit { putBoolean("ambient_light", value) }
+
     /** Show the current lyric line on the lock screen and notification while a song plays. */
     var lockScreenLyrics: Boolean
         get() = sp.getBoolean("lock_screen_lyrics", true)

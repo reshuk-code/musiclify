@@ -1,6 +1,7 @@
 package com.musiclify.playback
 
 import android.app.PendingIntent
+import android.content.Context
 import android.content.Intent
 import android.util.Log
 import androidx.annotation.OptIn
@@ -10,7 +11,11 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.audio.AudioSink
+import androidx.media3.exoplayer.audio.DefaultAudioSink
+import androidx.media3.exoplayer.audio.TeeAudioProcessor
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
@@ -41,7 +46,15 @@ class PlaybackService : MediaSessionService() {
         super.onCreate()
         val graph = MusiclifyApp.graph
 
-        val player = ExoPlayer.Builder(this)
+        // Tap the decoded audio for the ambient light's beat (no microphone needed).
+        val renderers = object : DefaultRenderersFactory(this) {
+            override fun buildAudioSink(context: Context, enableFloatOutput: Boolean, enableAudioTrackPlaybackParams: Boolean): AudioSink =
+                DefaultAudioSink.Builder(context)
+                    .setAudioProcessors(arrayOf(TeeAudioProcessor(BeatMeter)))
+                    .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+                    .build()
+        }
+        val player = ExoPlayer.Builder(this, renderers)
             .setMediaSourceFactory(DefaultMediaSourceFactory(graph.engine.dataSourceFactory))
             .setAudioAttributes(
                 AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(),
@@ -51,6 +64,7 @@ class PlaybackService : MediaSessionService() {
             .setWakeMode(C.WAKE_MODE_NETWORK)
             .build()
         player.addListener(PlayerEvents(player))
+        Companion.player = player
         PlayerWidget.started(this)
         lyrics = LockScreenLyrics(player, scope, enabled = { graph.prefs.lockScreenLyrics }, load = graph::lyricsFor)
             .also { it.start() }
@@ -73,6 +87,7 @@ class PlaybackService : MediaSessionService() {
 
     override fun onDestroy() {
         lyrics?.stop()
+        Companion.player = null
         PlayerWidget.stopped(this)
         scope.cancel()
         session?.run {
@@ -169,6 +184,11 @@ class PlaybackService : MediaSessionService() {
 
     companion object {
         private const val TAG = "PlaybackService"
+
+        /** The live player while the service runs (same process), for the home-screen widget. */
+        @Volatile
+        var player: Player? = null
+            private set
 
         fun MediaItem.forPlayback(): MediaItem {
             val id = mediaId.toLong()

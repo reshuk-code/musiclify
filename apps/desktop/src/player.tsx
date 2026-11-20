@@ -28,6 +28,8 @@ interface Player {
   toggleShuffle: () => void;
   cycleRepeat: () => void;
   retry: () => void;
+  /** The <audio> element itself (the ambient light reads the beat from it). */
+  audioEl: HTMLAudioElement;
   /** Sleep timer: when playback will pause (ms since epoch), or null. */
   sleepEndsAt: number | null;
   /** Sleep timer set to "end of this song". */
@@ -50,7 +52,7 @@ function shuffled<T>(arr: T[]): T[] {
 }
 
 export function PlayerProvider({ children, onPlayed }: { children: ReactNode; onPlayed: () => void }) {
-  const audio = useRef<HTMLAudioElement>(new Audio());
+  const audio = useRef<HTMLAudioElement>(Object.assign(new Audio(), { crossOrigin: "anonymous" })); // CORS so Web Audio can read it
   const [queue, setQueue] = useState<Song[]>([]);
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -212,6 +214,7 @@ export function PlayerProvider({ children, onPlayed }: { children: ReactNode; on
 
   const value = useMemo<Player>(() => ({
     queue, index, current, playing, loading, error, position, duration, shuffle, repeat, volume,
+    audioEl: audio.current,
     sleepEndsAt, sleepAtSongEnd,
     setSleep: (when) => {
       setSleepAtSongEnd(when === "end");

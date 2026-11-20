@@ -152,8 +152,10 @@ fun PlayerScreen(vm: AppViewModel, onClose: () -> Unit, openArtist: (Long) -> Un
     }
     val isLiked = id in liked
 
+    Box(Modifier.fillMaxSize().background(PlayerBg)) {
+    AmbientBackground(vm, strength = 1f, modifier = Modifier.fillMaxSize())
     Column(
-        Modifier.fillMaxSize().background(PlayerBg).systemBarsPadding().padding(horizontal = 22.dp, vertical = 8.dp),
+        Modifier.fillMaxSize().systemBarsPadding().padding(horizontal = 22.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         // Header: close · "Playing from" · queue + more
@@ -253,6 +255,7 @@ fun PlayerScreen(vm: AppViewModel, onClose: () -> Unit, openArtist: (Long) -> Un
         }
 
         if (!lyricsOpen) LyricsPreview(lyrics, p.positionMs) { lyricsOpen = true }
+    }
     }
 
     if (showQueue) QueueSheet(vm) { showQueue = false }

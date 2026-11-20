@@ -89,6 +89,14 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit, editArtists: () -> Unit
                 modifier = Modifier.clickable { vm.updateShareMatches(!vm.shareMatches) },
             )
 
+            Group("Look")
+            ListItem(
+                headlineContent = { Text("Ambient light") },
+                supportingContent = { Text("A soft glow in the colours of the song's cover that pulses with the beat.") },
+                trailingContent = { Switch(checked = vm.ambientLight, onCheckedChange = vm::updateAmbientLight) },
+                modifier = Modifier.clickable { vm.updateAmbientLight(!vm.ambientLight) },
+            )
+
             Group("Lyrics")
             ListItem(
                 headlineContent = { Text("Lyrics on lock screen") },

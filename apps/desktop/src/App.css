@@ -408,3 +408,27 @@ input[type="range"]:hover::-webkit-slider-thumb { opacity: 1; }
 .sleep-menu button { text-align: left; padding: 9px 10px; border-radius: 8px; font-size: 14px; }
 .sleep-menu button:hover, .sleep-menu button:focus-visible { background: #ffffff12; }
 .sleep-menu button.danger { color: #ff8a8a; }
+
+/* Ambient light: cover-coloured glow behind the app that pulses with --beat (0..1, set per frame). */
+@property --c1 { syntax: "<color>"; inherits: false; initial-value: #ff7a59; }
+@property --c2 { syntax: "<color>"; inherits: false; initial-value: #ff4d6d; }
+@property --c3 { syntax: "<color>"; inherits: false; initial-value: #7a5cff; }
+.ambient {
+  --beat: 0;
+  position: fixed; inset: -10%; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(42% 38% at 28% 18%, color-mix(in srgb, var(--c1) 70%, transparent), transparent 70%),
+    radial-gradient(38% 34% at 82% 26%, color-mix(in srgb, var(--c2) 60%, transparent), transparent 70%),
+    radial-gradient(50% 40% at 55% 95%, color-mix(in srgb, var(--c3) 50%, transparent), transparent 72%);
+  filter: blur(60px) saturate(1.2);
+  opacity: calc(0.22 + var(--beat) * 0.28);
+  transform: scale(calc(1 + var(--beat) * 0.05));
+  transition: --c1 1.6s ease, --c2 1.6s ease, --c3 1.6s ease, opacity .25s ease-out;
+  will-change: opacity, transform;
+}
+.ambient:not(.playing) { opacity: 0.14; }
+.ambient.intense { opacity: calc(0.45 + var(--beat) * 0.4); }
+.ambient.intense:not(.playing) { opacity: 0.3; }
+/* Let the glow through the full-screen player. */
+.np { background: rgba(14, 16, 20, 0.62); }
+@media (prefers-reduced-motion: reduce) { .ambient { transform: none; transition: opacity .3s; } }
