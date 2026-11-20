@@ -1,0 +1,23 @@
+# Normalise line endings in the repo; check out with the platform's endings only where required.
+* text=auto eol=lf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+gradlew text eol=lf
+
+# Binary files
+*.png binary
+*.jpg binary
+*.webp binary
+*.ico binary
+*.icns binary
+*.ttf binary
+*.woff binary
+*.woff2 binary
+*.jar binary
+*.exe binary
+*.apk binary
+
+# Generated / lock files: hide from diffs and language stats
+**/package-lock.json linguist-generated=true -diff
+**/Cargo.lock linguist-generated=true -diff
+apps/android/app/schemas/** linguist-generated=true
