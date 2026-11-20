@@ -430,6 +430,8 @@ input[type="range"]:hover::-webkit-slider-thumb { opacity: 1; }
 .ambient.intense { opacity: calc(0.45 + var(--beat) * 0.4); }
 .ambient.intense:not(.playing) { opacity: 0.3; }
 /* Inside the full-screen player: the player stays opaque (hiding the page) and carries its own glow. */
-.np { position: relative; isolation: isolate; }
-.ambient.contained { position: absolute; inset: 0; z-index: -1; filter: blur(70px) saturate(1.25); }
+.np { position: relative; isolation: isolate; overflow-x: hidden; }
+/* No scaling in here: growing past the player's edges made scrollbars flicker on every beat.
+   The beat drives brightness only. */
+.ambient.contained { position: absolute; inset: 0; z-index: -1; transform: none; filter: blur(70px) saturate(1.25); }
 @media (prefers-reduced-motion: reduce) { .ambient { transform: none; transition: opacity .3s; } }
