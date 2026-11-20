@@ -40,6 +40,20 @@ class Prefs(context: Context, private val keys: KeyManager) {
             }
         }
 
+    /** Check GitHub Releases for a newer version (at most once a day). */
+    var checkUpdates: Boolean
+        get() = sp.getBoolean("check_updates", true)
+        set(value) = sp.edit { putBoolean("check_updates", value) }
+
+    var lastUpdateCheck: Long
+        get() = sp.getLong("last_update_check", 0L)
+        set(value) = sp.edit { putLong("last_update_check", value) }
+
+    /** The version the user dismissed, so the banner doesn't come back for it. */
+    var dismissedUpdate: String
+        get() = sp.getString("dismissed_update", "").orEmpty()
+        set(value) = sp.edit { putString("dismissed_update", value) }
+
     var lastSync: Long
         get() = sp.getLong("last_sync", 0L)
         set(value) = sp.edit { putLong("last_sync", value) }

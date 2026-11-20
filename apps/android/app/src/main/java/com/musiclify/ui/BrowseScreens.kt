@@ -22,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
@@ -34,6 +35,7 @@ import com.musiclify.Routes
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.background
+import com.musiclify.data.AppUpdate
 import com.musiclify.data.Artist
 import com.musiclify.data.Song
 import java.util.Calendar
@@ -70,6 +72,9 @@ fun HomeScreen(vm: AppViewModel, actions: SongActions, openSettings: () -> Unit,
                 IconButton(onClick = { vm.loadHome() }) { Icon(Lucide.RefreshCw, contentDescription = "Refresh") }
                 IconButton(onClick = openSettings) { Icon(Lucide.Settings, contentDescription = "Settings") }
             }
+        }
+        vm.availableUpdate?.let { update ->
+            item(key = "update") { UpdateBanner(update, onDismiss = vm::dismissUpdate) }
         }
         item {
             Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -145,6 +150,25 @@ fun HomeScreen(vm: AppViewModel, actions: SongActions, openSettings: () -> Unit,
                 }
             }
         }
+    }
+}
+
+/** "A new version is available" card, linking straight to the APK on GitHub Releases. */
+@Composable
+private fun UpdateBanner(update: AppUpdate, onDismiss: () -> Unit) {
+    val uri = LocalUriHandler.current
+    Row(
+        Modifier.padding(horizontal = 16.dp, vertical = 4.dp).fillMaxWidth().clip(RoundedCornerShape(14.dp))
+            .background(AccentSoft).padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text("Musiclify ${update.version} is available", fontWeight = FontWeight.SemiBold)
+            Text("Install it over this version. Your library stays.", style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        TextButton(onClick = onDismiss) { Text("Later") }
+        Button(onClick = { uri.openUri(update.apkUrl ?: update.pageUrl) }) { Text("Update") }
     }
 }
 

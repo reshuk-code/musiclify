@@ -8,6 +8,8 @@ import { PlayerProvider, usePlayer, type RepeatMode } from "./player";
 import { NowPlayingView, PlayerBar, SidePanel, type Panel } from "./playerui";
 import { Onboarding, SettingsPage } from "./setup";
 import { StoreProvider, useStore, type Route } from "./store";
+import { useUpdate } from "./updates";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import "./App.css";
 
 export default function App() {
@@ -34,6 +36,7 @@ const songs = (n: number) => `${n} ${n === 1 ? "song" : "songs"}`;
 function Main() {
   const store = useStore();
   const p = usePlayer();
+  const { update, dismiss } = useUpdate();
   const [panel, setPanel] = useState<Panel>(null);
   const [full, setFull] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -131,6 +134,13 @@ function Main() {
       </aside>
 
       <main className="content">
+        {update && (
+          <div className="update-banner" role="status">
+            <span><b>Musiclify {update.version} is available.</b> <span className="muted">Install it over this version; your library stays.</span></span>
+            <button className="btn ghost sm" onClick={dismiss}>Later</button>
+            <button className="btn primary sm round" onClick={() => { openUrl(update.url); dismiss(); }}>Download</button>
+          </div>
+        )}
         {store.canGoBack && (
           <button className="back-btn" onClick={store.back} aria-label="Back"><ChevronLeft size={20} /></button>
         )}

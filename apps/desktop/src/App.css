@@ -13,6 +13,7 @@
   --muted: #a1a1aa;
   --accent: #ff7a59;
   --accent-ink: #1a0d08;
+  --accent-soft: #3a2620;
   --danger: #ff6b6b;
   --radius: 10px;
   --player-h: 88px;
@@ -393,3 +394,8 @@ input[type="range"]:hover::-webkit-slider-thumb { opacity: 1; }
 /* Lyrics column never taller than the space left between the header and the Up next strip. */
 .np-right { max-height: calc(100vh - var(--player-h) - 250px); }
 @media (max-height: 960px) { .np-right { max-height: calc(100vh - var(--player-h) - 150px); } }
+
+/* "New version available" banner at the top of the content area */
+.update-banner { display: flex; align-items: center; gap: 12px; margin: 16px 24px 0; padding: 12px 12px 12px 18px;
+  border-radius: 14px; background: var(--accent-soft, #3a2620); border: 1px solid var(--line); }
+.update-banner > span { flex: 1; }

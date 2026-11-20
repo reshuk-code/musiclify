@@ -7,6 +7,7 @@ import com.musiclify.data.LrcLib
 import com.musiclify.data.MusicDatabase
 import com.musiclify.data.Prefs
 import com.musiclify.data.Sync
+import com.musiclify.data.UpdateChecker
 import com.musiclify.engine.DeviceLink
 import com.musiclify.engine.KeyManager
 import com.musiclify.engine.MatchCache
@@ -47,6 +48,7 @@ class Graph(context: Context) {
     val link = DeviceLink(http, sync, prefs)
     val deezer = Deezer(http)
     val lrclib = LrcLib(http)
+    val updates = UpdateChecker(http)
     val matchCache = MatchCache(http, BuildConfig.MATCH_CACHE_URL) { prefs.shareMatches }
     val resolver = YouTubeResolver(dao, matchCache)
     val engine = MediaEngine(context, keys, resolver, dao, http)

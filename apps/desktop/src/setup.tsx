@@ -14,6 +14,8 @@ function timeAgo(ms: number): string {
 import { Modal, NameDialog, Spinner } from "./components";
 import { ArtistPicker } from "./pages";
 import { useStore } from "./store";
+import { setUpdatesEnabled, updatesEnabled } from "./updates";
+import { getVersion } from "@tauri-apps/api/app";
 
 // ---------------------------------------------------------------- onboarding
 
@@ -164,6 +166,8 @@ export function LinkPanel({ onImported, onCancel }: { onImported?: () => void; o
 
 // ---------------------------------------------------------------- settings
 
+const OS_NAME = /Mac/i.test(navigator.userAgent) ? "macOS" : /Linux/i.test(navigator.userAgent) ? "Linux" : "Windows";
+
 export function SettingsPage() {
   const store = useStore();
   const [renaming, setRenaming] = useState(false);
@@ -172,6 +176,9 @@ export function SettingsPage() {
   const [msg, setMsg] = useState<string | null>(null);
   const [paired, setPaired] = useState<PairedDevice[]>([]);
   const [autostart, setAutostart] = useState(true);
+  const [checkUpdates, setCheckUpdates] = useState(updatesEnabled());
+  const [version, setVersion] = useState("");
+  useEffect(() => { getVersion().then(setVersion).catch(() => {}); }, []);
   useEffect(() => { db.autostartGet().then(setAutostart).catch(() => {}); }, []);
   const p = store.profile;
 
@@ -206,7 +213,7 @@ export function SettingsPage() {
         <button className="btn ghost sm" onClick={async () => { await db.unpair(d.id); setPaired(await db.pairedList()); }}>Unpair</button>,
       ))}
 
-      {row("Start with Windows",
+      {row(`Start with ${OS_NAME}`,
         "Musiclify starts quietly in the tray when you sign in, so your phone can sync or hand music over any time. Closing the window keeps it running in the tray; use Quit from the tray icon to exit.",
         <label className="switch"><input type="checkbox" checked={autostart}
           onChange={async (e) => { const on = e.target.checked; setAutostart(on); try { await db.autostartSet(on); } catch { setAutostart(!on); } }} /><span /></label>)}
@@ -223,6 +230,12 @@ export function SettingsPage() {
       {row("Listening history", "Clears Recently played",
         <button className="btn ghost sm" onClick={async () => { await db.clearHistory(); store.refresh(); }}>Clear</button>)}
 
+      <h3 className="group">Updates</h3>
+      {row("Check for updates",
+        "Once a day, look for a newer version on GitHub Releases. Only the public release list is read; nothing about you or this PC is sent.",
+        <label className="switch"><input type="checkbox" checked={checkUpdates}
+          onChange={(e) => { setUpdatesEnabled(e.target.checked); setCheckUpdates(e.target.checked); }} /><span /></label>)}
+
       <h3 className="group">YouTube</h3>
       {row("YouTube cookies", p?.hasCookies ? "Imported." : "Optional. Only needed if YouTube blocks this PC. Import a cookies.txt exported from youtube.com.",
         <div className="row-actions">
@@ -233,7 +246,7 @@ export function SettingsPage() {
       <p className="muted small">Cookies stay on this PC and are only used by yt-dlp for youtube.com. Use a spare Google account: YouTube may restrict accounts used for downloading.</p>
 
       <h3 className="group">About</h3>
-      {row("Musiclify for desktop 0.1", "Open source (GPL-3.0). Song info from Deezer, lyrics from LRCLIB, audio via yt-dlp.")}
+      {row(`Musiclify for desktop ${version}`, "Open source (GPL-3.0). Song info from Deezer, lyrics from LRCLIB, audio via yt-dlp.")}
       {row("Personal use only", "Music is streamed from YouTube for your own listening. Respect artists and copyright.")}
 
       {renaming && <NameDialog title="Your name" confirm="Save" initial={p?.name} onClose={() => setRenaming(false)}

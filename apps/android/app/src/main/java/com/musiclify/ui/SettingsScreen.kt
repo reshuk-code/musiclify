@@ -89,6 +89,17 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit, editArtists: () -> Unit
                 modifier = Modifier.clickable { vm.updateShareMatches(!vm.shareMatches) },
             )
 
+            Group("Updates")
+            ListItem(
+                headlineContent = { Text("Check for updates") },
+                supportingContent = {
+                    Text("Once a day, look for a newer version on GitHub Releases. Only the public release list " +
+                        "is read; nothing about you or this phone is sent.")
+                },
+                trailingContent = { Switch(checked = vm.checkUpdates, onCheckedChange = vm::updateCheckUpdates) },
+                modifier = Modifier.clickable { vm.updateCheckUpdates(!vm.checkUpdates) },
+            )
+
             Group("YouTube")
             Setting(
                 "YouTube cookies",

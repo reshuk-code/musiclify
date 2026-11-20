@@ -6,7 +6,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.musiclify.BuildConfig
 import com.musiclify.MusiclifyApp
+import com.musiclify.data.AppUpdate
 import com.musiclify.data.Artist
 import com.musiclify.data.FavoriteArtist
 import com.musiclify.data.Lyrics
@@ -217,6 +219,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         if (onboarded) {
             loadHome()
             syncNow(silent = true) // auto-sync with the paired PC whenever the app opens
+            checkForUpdate()
         }
     }
 
@@ -440,6 +443,36 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun updateShareMatches(enabled: Boolean) {
         graph.prefs.shareMatches = enabled
         shareMatches = enabled
+    }
+
+    // ---------------- updates ----------------
+    /** A newer release to offer in a banner, or null. */
+    var availableUpdate by mutableStateOf<AppUpdate?>(null)
+        private set
+
+    var checkUpdates by mutableStateOf(graph.prefs.checkUpdates)
+        private set
+
+    fun updateCheckUpdates(enabled: Boolean) {
+        graph.prefs.checkUpdates = enabled
+        checkUpdates = enabled
+        if (!enabled) availableUpdate = null else checkForUpdate(force = true)
+    }
+
+    /** At most once a day (or now, when [force]d from Settings), look for a newer release on GitHub. */
+    fun checkForUpdate(force: Boolean = false) = viewModelScope.launch {
+        val prefs = graph.prefs
+        if (!prefs.checkUpdates) return@launch
+        val now = System.currentTimeMillis()
+        if (!force && now - prefs.lastUpdateCheck < 24 * 60 * 60 * 1000L) return@launch
+        val update = runCatching { graph.updates.check(BuildConfig.VERSION_NAME) }.getOrNull()
+        prefs.lastUpdateCheck = now
+        availableUpdate = update?.takeIf { force || it.version != prefs.dismissedUpdate }
+    }
+
+    fun dismissUpdate() {
+        availableUpdate?.let { graph.prefs.dismissedUpdate = it.version }
+        availableUpdate = null
     }
 
     /** Returns null on success, or an error message. */
