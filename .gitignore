@@ -1,0 +1,56 @@
+# ---- Secrets ----
+cookies.txt
+
+# ---- User data (music, downloads, library cache) ----
+tools/cli/downloads/
+tools/cli/library/
+tools/cli/*.mp4
+tools/cli/*.mp4.part
+tools/cli/*.mp4.ytdl
+tools/cli/*.mp3
+tools/cli/*.lyrics.json
+
+# ---- Android ----
+apps/android/.gradle/
+apps/android/.kotlin/
+apps/android/build/
+apps/android/app/build/
+apps/android/local.properties
+apps/android/.idea/
+
+# ---- Desktop (Tauri) ----
+apps/desktop/node_modules/
+apps/desktop/dist/
+apps/desktop/src-tauri/target/
+apps/desktop/src-tauri/target-build/
+apps/desktop/src-tauri/gen/
+
+# ---- Website (Next.js) ----
+apps/website/node_modules/
+apps/website/.next/
+apps/website/out/
+apps/website/public/downloads/
+
+# ---- Match cache (Neon Function) ----
+services/matchcache/node_modules/
+services/matchcache/dist/
+services/matchcache/function.zip
+
+# ---- Python ----
+__pycache__/
+*.pyc
+
+# ---- OS / editor ----
+.DS_Store
+Thumbs.db
+.vscode/
+*.swp
+
+# ---- Build / debug logs ----
+npm-debug.log*
+yarn-debug.log*
+*.tsbuildinfo
+
+# ---- Environment ----
+.env*
+.vercel
