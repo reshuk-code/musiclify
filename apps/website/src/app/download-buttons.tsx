@@ -2,7 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 import { Download, Monitor, Smartphone } from "lucide-react";
-import { ANDROID, WINDOWS } from "./downloads";
+import { ANDROID, OTHER_DESKTOP, WINDOWS } from "./downloads";
 
 type Platform = "windows" | "android" | "other";
 
@@ -53,7 +53,8 @@ export function DownloadCards() {
         <ul className="space-y-1.5 text-sm text-muted">
           {(kind === "windows"
             ? ["If SmartScreen appears: More info → Run anyway (not code-signed yet)", "Allow it on private networks when you first link your phone"]
-            : ["Open the file and allow installing from your browser", "Not on Google Play: install it straight from here"]
+            : ["Open the file and allow installing from your browser", "Not on Google Play: install it straight from here",
+              "Coming from 0.4? Sync with your PC, then uninstall 0.4 first: 0.5 is signed with a new release key"]
           ).map((t) => <li key={t}>• {t}</li>)}
         </ul>
         <a href={d.href} download
@@ -67,6 +68,16 @@ export function DownloadCards() {
     <>
       <p className="text-lg text-muted">{lead}</p>
       <div className="mt-10 grid w-full gap-5 text-left md:grid-cols-2">{card("windows")}{card("android")}</div>
+      <p className="mt-6 text-sm text-muted">
+        Also for{" "}
+        {OTHER_DESKTOP.map((d, i) => (
+          <span key={d.href}>
+            {i > 0 && " · "}
+            <a href={d.href} className="underline decoration-line underline-offset-4 hover:text-ink">{d.label}</a>
+          </span>
+        ))}
+        {" "}· <a href="https://github.com/reshuk-code/musiclify/releases" className="underline decoration-line underline-offset-4 hover:text-ink">all releases</a>
+      </p>
     </>
   );
 }
