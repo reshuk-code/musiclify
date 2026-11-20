@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  AlertCircle, Check, ChevronDown, ChevronUp, Heart, ListMusic, Loader2, Maximize2, MicVocal, Pause, Play, Repeat,
+  AlertCircle, Check, ChevronDown, ChevronUp, Heart, ListMusic, Loader2, Maximize2, MicVocal, Moon, Pause, Play, Repeat,
   Repeat1, Shuffle, SkipBack, SkipForward, Volume1, Volume2, VolumeX, X,
 } from "lucide-react";
 import { formatTime, lyricsFor, type Lyrics } from "./api";
@@ -100,6 +100,7 @@ export function PlayerBar({ panel, setPanel, onExpand }: { panel: Panel; setPane
       <div className="player-right">
         <button className={`icon-btn ${panel === "lyrics" ? "on" : ""}`} onClick={() => setPanel(panel === "lyrics" ? null : "lyrics")} aria-label="Lyrics"><MicVocal size={18} /></button>
         <button className={`icon-btn ${panel === "queue" ? "on" : ""}`} onClick={() => setPanel(panel === "queue" ? null : "queue")} aria-label="Queue"><ListMusic size={18} /></button>
+        <SleepTimer />
         <button className="icon-btn" onClick={() => p.setVolume(p.volume === 0 ? 0.8 : 0)} aria-label={p.volume === 0 ? "Unmute" : "Mute"}><VolIcon size={18} /></button>
         <input className="volume" type="range" min={0} max={1} step={0.01} value={p.volume}
           style={{ ["--fill" as any]: `${p.volume * 100}%` }} onChange={(e) => p.setVolume(Number(e.target.value))} aria-label="Volume" />
@@ -240,6 +241,44 @@ function QueueView() {
           {i !== p.index && <button className="icon-btn" onClick={() => p.removeAt(i)} aria-label="Remove from queue"><X size={16} /></button>}
         </div>
       ))}
+    </div>
+  );
+}
+
+/** Moon button with a small menu: pause after N minutes or at the end of this song. */
+function SleepTimer() {
+  const p = usePlayer();
+  const [open, setOpen] = useState(false);
+  const [, tick] = useState(0);
+  const ref = useRef<HTMLDivElement>(null);
+  const on = p.sleepEndsAt != null || p.sleepAtSongEnd;
+
+  // Close on outside click; refresh the countdown while the menu is open.
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); };
+    const t = window.setInterval(() => tick((n) => n + 1), 15_000);
+    document.addEventListener("mousedown", close);
+    return () => { document.removeEventListener("mousedown", close); window.clearInterval(t); };
+  }, [open]);
+
+  const minsLeft = p.sleepEndsAt != null ? Math.max(1, Math.ceil((p.sleepEndsAt - Date.now()) / 60_000)) : 0;
+  const status = p.sleepAtSongEnd ? "Pausing when this song ends" : p.sleepEndsAt != null ? `Pausing in ${minsLeft} min` : null;
+  const pick = (when: number | "end" | null) => { p.setSleep(when); setOpen(false); };
+
+  return (
+    <div className="sleep" ref={ref}>
+      <button className={`icon-btn ${on ? "on" : ""}`} onClick={() => setOpen((o) => !o)}
+        aria-label={status ?? "Sleep timer"} title={status ?? "Sleep timer"} aria-expanded={open}><Moon size={17} /></button>
+      {open && (
+        <div className="sleep-menu" role="menu">
+          <span className="muted tiny upper">Sleep timer</span>
+          {status && <span className="accent small">{status}</span>}
+          {[15, 30, 45, 60].map((m) => <button key={m} role="menuitem" onClick={() => pick(m)}>{m} minutes</button>)}
+          <button role="menuitem" onClick={() => pick("end")}>End of this song</button>
+          {on && <button role="menuitem" className="danger" onClick={() => pick(null)}>Turn off</button>}
+        </div>
+      )}
     </div>
   );
 }

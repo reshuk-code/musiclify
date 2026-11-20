@@ -28,6 +28,12 @@ interface Player {
   toggleShuffle: () => void;
   cycleRepeat: () => void;
   retry: () => void;
+  /** Sleep timer: when playback will pause (ms since epoch), or null. */
+  sleepEndsAt: number | null;
+  /** Sleep timer set to "end of this song". */
+  sleepAtSongEnd: boolean;
+  /** Pause after some minutes, at the end of this song, or turn the timer off (null). */
+  setSleep: (when: number | "end" | null) => void;
   /** Continue playback handed over from another device: same queue, song and position. */
   handoff: (songs: Song[], index: number, positionSec: number, repeat: RepeatMode, shuffled: boolean) => void;
 }
@@ -57,8 +63,17 @@ export function PlayerProvider({ children, onPlayed }: { children: ReactNode; on
   const [volume, setVolumeState] = useState(() => Number(localStorage.getItem("volume") ?? 0.9));
 
   // Refs mirror state for event handlers.
-  const state = useRef({ queue, index, repeat });
-  state.current = { queue, index, repeat };
+  const [sleepEndsAt, setSleepEndsAt] = useState<number | null>(null);
+  const [sleepAtSongEnd, setSleepAtSongEnd] = useState(false);
+  const state = useRef({ queue, index, repeat, sleepAtSongEnd });
+  state.current = { queue, index, repeat, sleepAtSongEnd };
+
+  // Timed sleep: pause when the time is up.
+  useEffect(() => {
+    if (sleepEndsAt == null) return;
+    const t = window.setTimeout(() => { audio.current.pause(); setSleepEndsAt(null); }, Math.max(0, sleepEndsAt - Date.now()));
+    return () => window.clearTimeout(t);
+  }, [sleepEndsAt]);
   const loadToken = useRef(0);
   const retried = useRef<number | null>(null);
   const isLocal = useRef(false);
@@ -134,6 +149,10 @@ export function PlayerProvider({ children, onPlayed }: { children: ReactNode; on
     const onWaiting = () => setLoading(true);
     const onPlaying = () => setLoading(false);
     const onEnded = () => {
+      if (state.current.sleepAtSongEnd) {
+        setSleepAtSongEnd(false); // sleep timer: stop here instead of playing the next song
+        return;
+      }
       if (state.current.repeat === "one") {
         a.currentTime = 0;
         a.play();
@@ -193,6 +212,11 @@ export function PlayerProvider({ children, onPlayed }: { children: ReactNode; on
 
   const value = useMemo<Player>(() => ({
     queue, index, current, playing, loading, error, position, duration, shuffle, repeat, volume,
+    sleepEndsAt, sleepAtSongEnd,
+    setSleep: (when) => {
+      setSleepAtSongEnd(when === "end");
+      setSleepEndsAt(typeof when === "number" ? Date.now() + when * 60_000 : null);
+    },
     playSongs: (songs, start = 0, shuffledMode = false) => {
       if (!songs.length) return;
       db.insertSongs(songs).catch(() => {});
@@ -250,7 +274,7 @@ export function PlayerProvider({ children, onPlayed }: { children: ReactNode; on
       setIndex(idx);
       load(songs[idx], true, positionSec);
     },
-  }), [queue, index, current, playing, loading, error, position, duration, shuffle, repeat, volume, goTo, toggle, next, previous, load]); // eslint-disable-line react-hooks/exhaustive-deps
+  }), [queue, index, current, playing, loading, error, position, duration, shuffle, repeat, volume, sleepEndsAt, sleepAtSongEnd, goTo, toggle, next, previous, load]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

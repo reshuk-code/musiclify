@@ -399,3 +399,12 @@ input[type="range"]:hover::-webkit-slider-thumb { opacity: 1; }
 .update-banner { display: flex; align-items: center; gap: 12px; margin: 16px 24px 0; padding: 12px 12px 12px 18px;
   border-radius: 14px; background: var(--accent-soft, #3a2620); border: 1px solid var(--line); }
 .update-banner > span { flex: 1; }
+
+/* Sleep timer menu, opening upward from the player bar */
+.sleep { position: relative; }
+.sleep-menu { position: absolute; bottom: calc(100% + 10px); right: -8px; z-index: 50; min-width: 200px; display: flex; flex-direction: column;
+  gap: 2px; padding: 10px; border-radius: 14px; background: var(--surface-2, #24242b); border: 1px solid var(--line); box-shadow: 0 16px 40px #0009; }
+.sleep-menu > span { padding: 4px 10px; }
+.sleep-menu button { text-align: left; padding: 9px 10px; border-radius: 8px; font-size: 14px; }
+.sleep-menu button:hover, .sleep-menu button:focus-visible { background: #ffffff12; }
+.sleep-menu button.danger { color: #ff8a8a; }
