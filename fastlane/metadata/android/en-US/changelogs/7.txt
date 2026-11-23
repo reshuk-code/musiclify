@@ -1,0 +1,9 @@
+- Autoplay: similar songs play when your queue ends, plus "Start radio"
+- Pick up where you left off: your queue comes back when you open the app
+- Import playlists from a Spotify or YouTube link
+- Your stats: top songs, artists and minutes listened
+- Share a song or a lyric line as an image
+- Artist pages list every album, single and EP
+- Recent searches
+- Free up space: choose which downloads to remove when storage is low
+- Fixed songs showing a greatest-hits cover instead of their album's
