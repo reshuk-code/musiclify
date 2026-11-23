@@ -13,7 +13,8 @@ pub fn match_cache_url() -> String {
 
 /// The UI can only reach these hosts (Deezer has no CORS, so requests go through Rust).
 /// api.github.com is only used to read the public releases list for update checks.
-const ALLOWED_HOSTS: &[&str] = &["api.deezer.com", "lrclib.net", "api.github.com"];
+/// musiclify.vercel.app is Musiclify's Deezer relay (see apps/website/src/app/api/deezer).
+const ALLOWED_HOSTS: &[&str] = &["api.deezer.com", "lrclib.net", "api.github.com", "musiclify.vercel.app"];
 
 pub fn client() -> reqwest::Client {
     reqwest::Client::builder()

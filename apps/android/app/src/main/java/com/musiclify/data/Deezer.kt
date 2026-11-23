@@ -70,7 +70,6 @@ class Deezer(private val http: OkHttpClient) {
     suspend fun albumTracks(album: Album): List<Song> = albumTrackCache[album.id] ?: run {
         val json = get("album/${album.id}/tracks", "limit" to "200")
         json.optJSONArray("data").objects().mapNotNull { t ->
-            if (!t.optBoolean("readable", true)) return@mapNotNull null
             val artist = t.optJSONObject("artist") ?: return@mapNotNull null
             Song(
                 id = t.getLong("id"),
@@ -166,22 +165,30 @@ class Deezer(private val http: OkHttpClient) {
 
     suspend fun relatedArtists(id: Long, limit: Int = 15) = artists(get("artist/$id/related", "limit" to "$limit"))
 
+    /**
+     * Deezer hides whole catalogues from some countries (in Nepal, Ed Sheeran's own albums don't
+     * show up in search or on his page), so requests go through Musiclify's relay, which asks Deezer
+     * from the US. If the relay can't answer (down, or Deezer rate-limits it), ask Deezer directly.
+     */
     private suspend fun get(path: String, vararg params: Pair<String, String>): JSONObject =
         withContext(Dispatchers.IO) {
-            val url = "https://api.deezer.com/$path".toHttpUrl().newBuilder()
-                .apply { params.forEach { (k, v) -> addQueryParameter(k, v) } }
-                .build()
-            http.newCall(Request.Builder().url(url).build()).execute().use { response ->
-                if (!response.isSuccessful) throw IOException("Deezer HTTP ${response.code}")
-                val json = JSONObject(response.body!!.string())
-                json.optJSONObject("error")?.let { throw IOException("Deezer: ${it.optString("message")}") }
-                json
-            }
+            runCatching { fetch(RELAY + path, params) }.getOrElse { fetch(DIRECT + path, params) }
         }
+
+    private fun fetch(base: String, params: Array<out Pair<String, String>>): JSONObject {
+        val url = base.toHttpUrl().newBuilder().apply { params.forEach { (k, v) -> addQueryParameter(k, v) } }.build()
+        return http.newCall(Request.Builder().url(url).build()).execute().use { response ->
+            if (!response.isSuccessful) throw IOException("Deezer HTTP ${response.code}")
+            val json = JSONObject(response.body!!.string())
+            json.optJSONObject("error")?.let { throw IOException("Deezer: ${it.optString("message")}") }
+            json
+        }
+    }
 
     private fun tracks(json: JSONObject): List<Song> =
         json.optJSONArray("data").objects().mapNotNull { t ->
-            if (t.optBoolean("readable", true).not()) return@mapNotNull null
+            // No "readable" filter: that's Deezer's own streaming rights in this region. Musiclify
+            // only uses Deezer for names and covers (audio comes from YouTube), so those songs play fine.
             val artist = t.optJSONObject("artist") ?: return@mapNotNull null
             val album = t.optJSONObject("album")
             Song(
@@ -218,6 +225,8 @@ class Deezer(private val http: OkHttpClient) {
         if (this == null) emptyList() else (0 until length()).mapNotNull { optJSONObject(it) }
 
     companion object {
+        private const val RELAY = "https://musiclify.vercel.app/api/deezer/"
+        private const val DIRECT = "https://api.deezer.com/"
         private const val MAX_ALBUMS = 300
         private const val MAX_ALBUM_LOOKUPS = 15
 

@@ -159,7 +159,7 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit, editArtists: () -> Unit
             )
 
             Group("About")
-            Setting("Musiclify ${BuildConfig.VERSION_NAME}", "Open source (GPL-3.0). Song info from Deezer, lyrics from LRCLIB, audio via NewPipeExtractor.")
+            Setting("Musiclify ${BuildConfig.VERSION_NAME}", "Open source (GPL-3.0). Song info from Deezer (through musiclify.vercel.app, so every country sees the full catalogue), lyrics from LRCLIB, audio via NewPipeExtractor.")
             Setting("Personal use only", "Music is streamed from YouTube for your own listening. Respect artists and copyright.")
         }
     }

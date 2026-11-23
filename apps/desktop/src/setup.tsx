@@ -263,7 +263,7 @@ export function SettingsPage() {
       <p className="muted small">Cookies stay on this PC and are only used by yt-dlp for youtube.com. Use a spare Google account: YouTube may restrict accounts used for downloading.</p>
 
       <h3 className="group">About</h3>
-      {row(`Musiclify for desktop ${version}`, "Open source (GPL-3.0). Song info from Deezer, lyrics from LRCLIB, audio via yt-dlp.")}
+      {row(`Musiclify for desktop ${version}`, "Open source (GPL-3.0). Song info from Deezer (through musiclify.vercel.app, so every country sees the full catalogue), lyrics from LRCLIB, audio via yt-dlp.")}
       {row("Personal use only", "Music is streamed from YouTube for your own listening. Respect artists and copyright.")}
 
       {renaming && <NameDialog title="Your name" confirm="Save" initial={p?.name} onClose={() => setRenaming(false)}

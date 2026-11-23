@@ -163,7 +163,8 @@ const fetchJson = <T = any>(url: string) => invoke<T>("fetch_json", { url });
 // ---------------------------------------------------------------- Deezer (metadata)
 
 function toSong(t: any): Song | null {
-  if (!t?.artist || t.readable === false) return null;
+  // No "readable" check: that's Deezer's own streaming rights here; audio comes from YouTube.
+  if (!t?.artist) return null;
   return {
     id: t.id,
     title: t.title ?? "",
@@ -178,11 +179,26 @@ function toSong(t: any): Song | null {
 
 const toArtist = (a: any): Artist => ({ id: a.id, name: a.name, picture: a.picture_big || a.picture_medium || "" });
 
+/**
+ * Deezer hides whole catalogues from some countries (in Nepal, Ed Sheeran's own albums don't show up
+ * in search or on his page), so requests go through Musiclify's relay, which asks Deezer from the US.
+ * If the relay can't answer (down, or Deezer rate-limits it), ask Deezer directly.
+ */
+const DEEZER_RELAY = "https://musiclify.vercel.app/api/deezer/";
+const DEEZER_DIRECT = "https://api.deezer.com/";
+
 async function deezer<T>(path: string, params: Record<string, string | number> = {}): Promise<T> {
   const qs = new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)])).toString();
-  const data = await fetchJson(`https://api.deezer.com/${path}${qs ? `?${qs}` : ""}`);
-  if (data?.error) throw new Error(`Deezer: ${data.error.message ?? "error"}`);
-  return data as T;
+  const get = async (base: string) => {
+    const data = await fetchJson(`${base}${path}${qs ? `?${qs}` : ""}`);
+    if (data?.error) throw new Error(`Deezer: ${data.error.message ?? "error"}`);
+    return data as T;
+  };
+  try {
+    return await get(DEEZER_RELAY);
+  } catch {
+    return get(DEEZER_DIRECT);
+  }
 }
 
 const tracks = (d: any) => ((d?.data ?? []) as any[]).map(toSong).filter((s): s is Song => s !== null);
