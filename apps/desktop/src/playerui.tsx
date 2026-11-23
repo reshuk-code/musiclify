@@ -4,7 +4,8 @@ import {
   Repeat1, Shuffle, SkipBack, SkipForward, Volume1, Volume2, VolumeX, X,
 } from "lucide-react";
 import { formatTime, lyricsFor, type Lyrics } from "./api";
-import { Cover } from "./components";
+import { Cover, SongMenu } from "./components";
+import { ShareDialog } from "./share";
 import { usePlayer } from "./player";
 import { useStore } from "./store";
 import { Ambient } from "./ambient";
@@ -58,6 +59,7 @@ function SaveStatus() {
   if (store.downloadedIds.has(song.id)) return <span className="pill ok"><Check size={13} strokeWidth={3} />Offline</span>;
   if (progress !== undefined) return <span className="pill">Saving · {Math.round(progress * 100)}%</span>;
   if (p.loading) return <span className="pill">Finding song…</span>;
+  if (p.restored) return <span className="pill">Continue listening</span>;
   return null;
 }
 
@@ -139,6 +141,7 @@ export function NowPlayingView({ onClose }: { onClose: () => void }) {
           <button role="tab" aria-selected={tab === "lyrics"} className={tab === "lyrics" ? "on" : ""} onClick={() => setTab("lyrics")}>Lyrics</button>
           <button role="tab" aria-selected={tab === "queue"} className={tab === "queue" ? "on" : ""} onClick={() => setTab("queue")}>Up next</button>
         </div>
+        <SongMenu song={song} />
       </header>
 
       <div className="np-body">
@@ -199,6 +202,7 @@ function LyricsView({ big = false }: { big?: boolean }) {
   const p = usePlayer();
   const song = p.current;
   const [lyrics, setLyrics] = useState<Lyrics | null>(null);
+  const [shareLine, setShareLine] = useState<string | null>(null);
   const box = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -222,9 +226,12 @@ function LyricsView({ big = false }: { big?: boolean }) {
       {!lyrics.synced && <p className="muted tiny">Timestamps not available for this song</p>}
       {lyrics.lines.map((l, i) => (
         <p key={i} data-i={i} className={`lyric ${i === active ? "active" : ""} ${lyrics.synced ? "synced" : ""} ${i < active ? "past" : ""}`}
-          onClick={() => lyrics.synced && p.seek(l.startMs / 1000)}>{l.text}</p>
+          onClick={() => lyrics.synced && p.seek(l.startMs / 1000)}
+          onContextMenu={(e) => { e.preventDefault(); setShareLine(l.text); }} title="Right-click to share this line">{l.text}</p>
       ))}
-      {big && <p className="muted small lyric-credit">Lyrics from LRCLIB · click a line to jump there</p>}
+      {big && <p className="muted small lyric-credit">Lyrics from LRCLIB · click a line to jump there · right-click to share it</p>}
+      {shareLine && <ShareDialog spec={{ kind: "song", title: song.title, artist: song.artist, cover: song.coverBig || song.cover, lyric: shareLine }}
+        name={`${song.title} - ${song.artist}`} onClose={() => setShareLine(null)} />}
     </div>
   );
 }

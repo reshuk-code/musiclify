@@ -167,6 +167,21 @@ fn history_add(s: S, song_id: i64) -> Result<()> {
 }
 
 #[tauri::command]
+fn recent_ids(s: S, limit: i64) -> Result<Vec<i64>> {
+    db::recent_song_ids(&s.db.lock().unwrap(), limit)
+}
+
+#[tauri::command]
+fn song_set_album_art(s: S, id: i64, album: String, cover: String, cover_big: String) -> Result<()> {
+    db::set_album_art(&s.db.lock().unwrap(), id, &album, &cover, &cover_big)
+}
+
+#[tauri::command]
+fn stats_get(s: S, since: i64) -> Result<db::Stats> {
+    db::stats(&s.db.lock().unwrap(), since)
+}
+
+#[tauri::command]
 fn history_clear(s: S) -> Result<()> {
     db::clear_history(&s.db.lock().unwrap())
 }
@@ -195,6 +210,19 @@ fn playlist_create(s: S, name: String, song: Option<Song>) -> Result<i64> {
     if let Some(song) = song {
         db::insert_songs(&c, std::slice::from_ref(&song))?;
         db::add_to_playlist(&c, id, song.id, db::now_ms())?;
+    }
+    Ok(id)
+}
+
+/// A new playlist filled with songs in the given order (playlist import).
+#[tauri::command]
+fn playlist_create_with(s: S, name: String, songs: Vec<Song>) -> Result<i64> {
+    let c = s.db.lock().unwrap();
+    let now = db::now_ms();
+    let id = db::create_playlist(&c, name.trim(), now)?;
+    db::insert_songs(&c, &songs)?;
+    for (i, song) in songs.iter().enumerate() {
+        db::add_to_playlist(&c, id, song.id, now + i as i64)?;
     }
     Ok(id)
 }
@@ -368,6 +396,87 @@ fn clear_downloads(s: S) -> Result<()> {
     db::clear_downloaded(&s.db.lock().unwrap())
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DownloadItem {
+    song: Song,
+    bytes: u64,
+    last_played: Option<i64>,
+    plays: i64,
+}
+
+/// Downloads with their size on disk, least recently played first (for "free up space").
+#[tauri::command]
+fn downloads_usage(s: S) -> Result<Vec<DownloadItem>> {
+    let rows = db::download_usage(&s.db.lock().unwrap())?;
+    Ok(rows
+        .into_iter()
+        .map(|(song, ext, last_played, plays)| {
+            let bytes = ext
+                .and_then(|e| std::fs::metadata(youtube::song_path(&s.library, song.id, &e)).ok())
+                .map(|m| m.len())
+                .unwrap_or(0);
+            DownloadItem { song, bytes, last_played, plays }
+        })
+        .collect())
+}
+
+#[tauri::command]
+fn remove_downloads(s: S, ids: Vec<i64>) -> Result<()> {
+    let c = s.db.lock().unwrap();
+    for id in ids {
+        if let Some(ext) = db::file_ext(&c, id)? {
+            let _ = std::fs::remove_file(youtube::song_path(&s.library, id, &ext));
+        }
+        db::set_downloaded(&c, id, None)?;
+    }
+    Ok(())
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DiskSpace {
+    free: u64,
+    total: u64,
+}
+
+/// Free and total space on the drive that holds the library.
+#[tauri::command]
+fn disk_space(s: S) -> Result<DiskSpace> {
+    Ok(DiskSpace { free: fs2::available_space(&s.library)?, total: fs2::total_space(&s.library)? })
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ExternalPlaylist {
+    name: String,
+    entries: Vec<youtube::PlaylistEntry>,
+}
+
+#[tauri::command]
+async fn youtube_playlist(app: AppHandle, list_id: String) -> Result<ExternalPlaylist> {
+    let cookies = app.state::<AppState>().cookies.clone();
+    let (name, entries) = youtube::playlist(&app, Some(cookies.as_path()), &list_id).await?;
+    Ok(ExternalPlaylist { name, entries })
+}
+
+#[tauri::command]
+async fn spotify_embed(s: S<'_>, kind: String, id: String) -> Result<String> {
+    net::spotify_embed(&s.http, &kind, &id).await
+}
+
+/// Save a share card (PNG, base64) to the Downloads folder; returns where it went.
+#[tauri::command]
+fn save_image(app: AppHandle, name: String, png_base64: String) -> Result<String> {
+    use base64::Engine;
+    let bytes = base64::engine::general_purpose::STANDARD.decode(png_base64.as_bytes()).map_err(|_| Error::msg("bad image"))?;
+    let safe: String = name.chars().map(|c| if c.is_alphanumeric() || c == '-' || c == ' ' { c } else { '_' }).collect();
+    let dir = app.path().download_dir().or_else(|_| app.path().picture_dir()).map_err(|e| Error::msg(e.to_string()))?;
+    let path = dir.join(format!("{}.png", safe.trim()));
+    std::fs::write(&path, bytes)?;
+    Ok(path.to_string_lossy().into_owned())
+}
+
 #[tauri::command]
 fn storage_bytes(s: S) -> Result<u64> {
     Ok(std::fs::read_dir(&s.library)?.flatten().filter_map(|e| e.metadata().ok()).map(|m| m.len()).sum())
@@ -496,8 +605,10 @@ pub fn run() {
             get_profile, set_profile, set_share_matches, set_cookies, fetch_json,
             favorites_get, favorites_set, favorite_toggle,
             songs_insert, like_toggle, liked_list, downloads_list, recent_list, history_add, history_clear,
+            recent_ids, song_set_album_art, stats_get, downloads_usage, remove_downloads, disk_space,
+            youtube_playlist, spotify_embed, save_image,
             lyrics_get, lyrics_set,
-            playlists_list, playlist_create, playlist_add, playlist_remove, playlist_songs, playlist_rename, playlist_delete,
+            playlists_list, playlist_create, playlist_create_with, playlist_add, playlist_remove, playlist_songs, playlist_rename, playlist_delete,
             prepare_song, download_song, download_many, remove_download, clear_downloads, storage_bytes,
             link_start, link_stop, paired_list, unpair,
             background::autostart_get, background::autostart_set,

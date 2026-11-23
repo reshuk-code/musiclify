@@ -38,6 +38,22 @@ pub async fn fetch_json(http: &reqwest::Client, url: &str) -> Result<Value> {
     Ok(resp.error_for_status()?.json().await?)
 }
 
+/// The page Spotify serves for embedding a public playlist or album; its page data lists the tracks.
+pub async fn spotify_embed(http: &reqwest::Client, kind: &str, id: &str) -> Result<String> {
+    if !matches!(kind, "playlist" | "album") || id.is_empty() || !id.chars().all(|c| c.is_ascii_alphanumeric()) {
+        return Err(Error::msg("That doesn't look like a Spotify playlist link."));
+    }
+    let resp = http
+        .get(format!("https://open.spotify.com/embed/{kind}/{id}"))
+        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36")
+        .send()
+        .await?;
+    if !resp.status().is_success() {
+        return Err(Error::msg(format!("Spotify didn't share this {kind} (HTTP {}). Is it public?", resp.status().as_u16())));
+    }
+    Ok(resp.text().await?)
+}
+
 pub struct SharedMatch {
     pub youtube_id: String,
 }

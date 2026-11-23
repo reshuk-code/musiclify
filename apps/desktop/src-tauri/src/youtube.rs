@@ -93,6 +93,50 @@ pub async fn search(app: &AppHandle, cookies: Option<&Path>, song: &Song) -> Res
         .ok_or_else(|| Error::msg("Couldn't find this song on YouTube"))
 }
 
+/// A song from a YouTube playlist, known only by name.
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlaylistEntry {
+    pub title: String,
+    pub uploader: String,
+    pub duration_sec: i64,
+}
+
+/// Read a public YouTube / YouTube Music playlist (titles only, nothing downloaded).
+pub async fn playlist(app: &AppHandle, cookies: Option<&Path>, list_id: &str) -> Result<(String, Vec<PlaylistEntry>)> {
+    if !list_id.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-') || list_id.is_empty() {
+        return Err(Error::msg("That doesn't look like a YouTube playlist link."));
+    }
+    let mut args = base_args(cookies);
+    args.extend([
+        "--flat-playlist".into(), "-J".into(), "--playlist-end".into(), "500".into(),
+        format!("https://www.youtube.com/playlist?list={list_id}"),
+    ]);
+    let out = app
+        .shell()
+        .sidecar("yt-dlp")
+        .map_err(|e| Error::msg(format!("yt-dlp missing: {e}")))?
+        .args(args)
+        .output()
+        .await
+        .map_err(|e| Error::msg(format!("yt-dlp failed to start: {e}")))?;
+    if !out.status.success() {
+        return Err(Error::msg(friendly(&String::from_utf8_lossy(&out.stderr))));
+    }
+    let v: Value = serde_json::from_slice(&out.stdout)?;
+    let name = v.get("title").and_then(Value::as_str).unwrap_or("YouTube playlist").to_string();
+    let entries = v.get("entries").and_then(Value::as_array).into_iter().flatten()
+        .filter_map(|e| {
+            Some(PlaylistEntry {
+                title: e.get("title")?.as_str()?.to_string(),
+                uploader: e.get("channel").or(e.get("uploader")).and_then(Value::as_str).unwrap_or_default().to_string(),
+                duration_sec: e.get("duration").and_then(Value::as_f64).unwrap_or(0.0) as i64,
+            })
+        })
+        .collect();
+    Ok((name, entries))
+}
+
 pub fn duration_matches(video: i64, song: i64) -> bool {
     song <= 0 || video <= 0 || (video - song).abs() <= 10
 }

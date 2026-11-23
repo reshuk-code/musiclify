@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Download, Heart, History, Plus, RefreshCw, Search as SearchIcon, X } from "lucide-react";
-import { db, deezerApi, POPULAR_ARTISTS, type Artist, type Song } from "./api";
+import { BarChart3, Download, Heart, History, Link2, Plus, RefreshCw, Search as SearchIcon, X } from "lucide-react";
+import { db, deezerApi, POPULAR_ARTISTS, withOriginalCovers, type Artist, type Song } from "./api";
+import { AlbumCard } from "./extra";
 import { ArtistTile, Cover, Empty, NameDialog, PlayShuffle, Section, Shelf, SongCard, SongRow, Spinner } from "./components";
 import { usePlayer } from "./player";
 import { useStore } from "./store";
 
-function useAsync<T>(fn: () => Promise<T>, deps: unknown[]) {
+export function useAsync<T>(fn: () => Promise<T>, deps: unknown[]) {
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -67,9 +68,9 @@ export function HomePage() {
     const newest = favs.slice(-2).reverse();
     const picked = [...newest, ...shuffle(favs.slice(0, -2)).slice(0, 6 - newest.length)];
     const [chart, tops, related] = await Promise.all([
-      deezerApi.chartTracks(30).catch(() => [] as Song[]),
+      deezerApi.chartTracks(30).then(withOriginalCovers).catch(() => [] as Song[]),
       // Deeper pool, shuffled, so the same 15 songs don't come back every time.
-      Promise.all(picked.map(async (a) => ({ artist: a, songs: shuffle(await deezerApi.artistTop(a.id, 50).catch(() => [] as Song[])).slice(0, 15) }))),
+      Promise.all(picked.map(async (a) => ({ artist: a, songs: await withOriginalCovers(shuffle(await deezerApi.artistTop(a.id, 50).catch(() => [] as Song[])).slice(0, 15)) }))),
       Promise.all(picked.slice(0, 4).map((a) => deezerApi.related(a.id, 8).catch(() => [] as Artist[]))),
     ]);
     const favIds = new Set(favs.map((f) => f.id));
@@ -181,14 +182,45 @@ export function SearchPage() {
     const [songs, artists] = await Promise.all([deezerApi.searchTracks(debounced), deezerApi.searchArtists(debounced, 10)]);
     return { songs, artists };
   }, [debounced]);
+  // Show results right away, then swap greatest-hits covers for the original albums'.
+  const [fixed, setFixed] = useState<Song[] | null>(null);
+  useEffect(() => {
+    setFixed(null);
+    const songs = results.data?.songs;
+    if (!songs?.length) return;
+    let alive = true;
+    withOriginalCovers(songs).then((s) => alive && setFixed(s));
+    return () => { alive = false; };
+  }, [results.data]);
+  const songs = fixed ?? results.data?.songs ?? [];
+
+  const [recents, setRecents] = useState<string[]>(() => { try { return JSON.parse(localStorage.getItem("recentSearches") ?? "[]"); } catch { return []; } });
+  const saveRecents = (list: string[]) => { setRecents(list); localStorage.setItem("recentSearches", JSON.stringify(list)); };
+  /** Remember a search the user acted on (Enter, or opened a result), not every half-typed word. */
+  const remember = () => {
+    const t = q.trim();
+    if (t.length >= 2) saveRecents([t, ...recents.filter((r) => r.toLowerCase() !== t.toLowerCase())].slice(0, 10));
+  };
 
   return (
     <div className="page">
       <div className="search-bar">
         <SearchIcon size={18} />
-        <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="What do you want to listen to?" />
+        <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === "Enter" && remember()} placeholder="What do you want to listen to?" />
         {q && <button className="icon-btn" onClick={() => setQ("")} aria-label="Clear"><X size={16} /></button>}
       </div>
+      {!debounced && !!recents.length && (
+        <Section title="Recent searches" action={<button className="link muted small strong" onClick={() => saveRecents([])}>Clear all</button>}>
+          <div className="recent-searches">
+            {recents.map((r) => (
+              <span key={r} className="recent-chip">
+                <button className="link" onClick={() => setQ(r)}><History size={14} />{r}</button>
+                <button className="icon-btn sm" onClick={() => saveRecents(recents.filter((x) => x !== r))} aria-label={`Remove "${r}"`}><X size={14} /></button>
+              </span>
+            ))}
+          </div>
+        </Section>
+      )}
       {!debounced && (
         <Section title="Browse artists">
           <div className="grid-artists">
@@ -203,13 +235,13 @@ export function SearchPage() {
           {!results.data.songs.length && !results.data.artists.length && <Empty text={`No results for "${debounced}".`} />}
           {!!results.data.artists.length && (
             <Section title="Artists">
-              <Shelf>{results.data.artists.map((a) => <ArtistTile key={a.id} artist={a} size={120} onClick={() => store.navigate({ name: "artist", id: a.id })} />)}</Shelf>
+              <Shelf>{results.data.artists.map((a) => <ArtistTile key={a.id} artist={a} size={120} onClick={() => { remember(); store.navigate({ name: "artist", id: a.id }); }} />)}</Shelf>
             </Section>
           )}
-          {!!results.data.songs.length && (
+          {!!songs.length && (
             <Section title="Songs">
               <div className="rows">
-                {results.data.songs.map((s, i) => <SongRow key={s.id} song={s} index={i} onPlay={() => p.playSongs(results.data!.songs, i)} />)}
+                {songs.map((s, i) => <SongRow key={s.id} song={s} index={i} onPlay={() => { remember(); p.playSongs(songs, i); }} />)}
               </div>
             </Section>
           )}
@@ -246,6 +278,8 @@ export function LibraryPage() {
         {entry("Liked Songs", `${counts.data?.liked ?? 0} songs`, <Heart size={22} fill="currentColor" />, () => store.navigate({ name: "liked" }))}
         {entry("Downloads", `${counts.data?.downloads ?? 0} songs · plays offline`, <Download size={22} />, () => store.navigate({ name: "downloads" }))}
         {entry("Recently played", `${counts.data?.recent ?? 0} songs`, <History size={22} />, () => store.navigate({ name: "history" }))}
+        {entry("Your stats", "Top songs, artists and minutes listened", <BarChart3 size={22} />, () => store.navigate({ name: "stats" }))}
+        {entry("Import playlist", "From a Spotify or YouTube link", <Link2 size={22} />, () => store.navigate({ name: "import" }))}
       </div>
       <Section title="Playlists">
         {!store.playlists.length && <Empty text="No playlists yet." action="Create playlist" onAction={() => setCreating(true)} />}
@@ -347,13 +381,30 @@ export function PlaylistPage({ id }: { id: number }) {
 export function ArtistPage({ id }: { id: number }) {
   const store = useStore();
   const p = usePlayer();
+  const [showAll, setShowAll] = useState(false);
   const { data, error, reload } = useAsync(async () => {
-    const [artist, top, related] = await Promise.all([deezerApi.artist(id), deezerApi.artistTop(id, 20), deezerApi.related(id, 12).catch(() => [])]);
-    return { artist, top, related };
+    const [artist, top, releases, related] = await Promise.all([
+      deezerApi.artist(id), deezerApi.artistTop(id, 50), deezerApi.artistAlbums(id).catch(() => []), deezerApi.related(id, 12).catch(() => []),
+    ]);
+    return {
+      artist, top, related,
+      albums: releases.filter((a) => a.type === "album" || a.type === "compile"),
+      singles: releases.filter((a) => a.type === "single" || a.type === "ep"),
+    };
   }, [id]);
+  // Then swap greatest-hits covers for the original albums' (a few extra requests).
+  const [fixedTop, setFixedTop] = useState<Song[] | null>(null);
+  useEffect(() => {
+    if (!data) return;
+    let alive = true;
+    withOriginalCovers(data.top).then((s) => alive && setFixedTop(s));
+    return () => { alive = false; };
+  }, [data]);
   if (error) return <div className="page"><Empty text="Couldn't load this artist." action="Retry" onAction={reload} /></div>;
   if (!data) return <div className="page center-box"><Spinner /></div>;
   const following = store.favorites.some((f) => f.id === id);
+  const top = fixedTop ?? data.top;
+  const shown = showAll ? top : top.slice(0, 10);
   return (
     <div className="page">
       <header className="hero">
@@ -362,16 +413,27 @@ export function ArtistPage({ id }: { id: number }) {
           <span className="kicker">Artist</span>
           <h1 className="hero-title">{data.artist.name}</h1>
           <div className="hero-actions">
-            <PlayShuffle songs={data.top} />
+            <PlayShuffle songs={top} />
             <button className={`btn round sm ${following ? "ghost" : "outline"}`} onClick={async () => {
               await db.toggleFavorite(data.artist); await store.reloadFavorites();
             }}>{following ? "Following" : "Follow"}</button>
           </div>
         </div>
       </header>
-      <Section title="Popular">
-        <div className="rows">{data.top.map((s, i) => <SongRow key={s.id} song={s} index={i} onPlay={() => p.playSongs(data.top, i)} />)}</div>
+      <Section title="Popular" action={top.length > 10
+        ? <button className="link muted small strong" onClick={() => setShowAll((v) => !v)}>{showAll ? "Show less" : `Show all ${top.length}`}</button> : undefined}>
+        <div className="rows">{shown.map((s, i) => <SongRow key={s.id} song={s} index={i} onPlay={() => p.playSongs(top, i)} />)}</div>
       </Section>
+      {!!data.albums.length && (
+        <Section title="Albums" subtitle={`${data.albums.length} releases`}>
+          <Shelf>{data.albums.map((a) => <AlbumCard key={a.id} album={a} onClick={() => store.navigate({ name: "album", id: a.id })} />)}</Shelf>
+        </Section>
+      )}
+      {!!data.singles.length && (
+        <Section title="Singles & EPs" subtitle={`${data.singles.length} releases`}>
+          <Shelf>{data.singles.map((a) => <AlbumCard key={a.id} album={a} onClick={() => store.navigate({ name: "album", id: a.id })} />)}</Shelf>
+        </Section>
+      )}
       {!!data.related.length && (
         <Section title="Fans also like">
           <Shelf>{data.related.map((a) => <ArtistTile key={a.id} artist={a} onClick={() => store.navigate({ name: "artist", id: a.id })} />)}</Shelf>

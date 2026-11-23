@@ -1,6 +1,6 @@
 [package]
 name = "musiclify"
-version = "0.2.0"
+version = "0.3.0"
 description = "Musiclify desktop: local-first music player"
 authors = ["Musiclify contributors"]
 license = "GPL-3.0-or-later"
@@ -38,6 +38,8 @@ tiny_http = "0.12"
 url = "2"
 regex = "1"
 thiserror = "2"
+# Free disk space, for the "running low on storage" prompt.
+fs2 = "0.4"
 
 [profile.release]
 codegen-units = 1

@@ -1,5 +1,22 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { db, type Song } from "./api";
+import { db, deezerApi, originalRelease, withOriginalCovers, type Song } from "./api";
+
+/** Autoplay: when the queue runs out, keep playing similar songs. On unless turned off in Settings. */
+export const autoplayEnabled = () => localStorage.getItem("autoplay") !== "0";
+export const setAutoplayEnabled = (on: boolean) => localStorage.setItem("autoplay", on ? "1" : "0");
+
+const SAVED_QUEUE = "savedQueue";
+const MAX_SAVED = 300;
+type SavedQueue = { songs: Song[]; index: number; position: number };
+
+function readSavedQueue(): SavedQueue | null {
+  try {
+    const q = JSON.parse(localStorage.getItem(SAVED_QUEUE) ?? "null") as SavedQueue | null;
+    return q && Array.isArray(q.songs) && q.songs.length ? q : null;
+  } catch {
+    return null;
+  }
+}
 
 export type RepeatMode = "off" | "all" | "one";
 
@@ -36,6 +53,10 @@ interface Player {
   sleepAtSongEnd: boolean;
   /** Pause after some minutes, at the end of this song, or turn the timer off (null). */
   setSleep: (when: number | "end" | null) => void;
+  /** The queue was brought back from last time and hasn't been played yet ("continue listening"). */
+  restored: boolean;
+  /** This song, then similar songs (the artist's Deezer radio). */
+  startRadio: (song: Song) => Promise<void>;
   /** Continue playback handed over from another device: same queue, song and position. */
   handoff: (songs: Song[], index: number, positionSec: number, repeat: RepeatMode, shuffled: boolean) => void;
 }
@@ -63,6 +84,21 @@ export function PlayerProvider({ children, onPlayed }: { children: ReactNode; on
   const [shuffle, setShuffle] = useState(false);
   const [repeat, setRepeat] = useState<RepeatMode>("off");
   const [volume, setVolumeState] = useState(() => Number(localStorage.getItem("volume") ?? 0.9));
+  const [restored, setRestored] = useState(false);
+  const restoredAt = useRef(0);
+
+  // Continue listening: bring back last session's queue, paused at the same spot.
+  useEffect(() => {
+    const saved = readSavedQueue();
+    if (!saved) return;
+    const i = Math.min(Math.max(saved.index, 0), saved.songs.length - 1);
+    setQueue(saved.songs);
+    setIndex(i);
+    setPosition(saved.position);
+    setDuration(saved.songs[i].durationSec);
+    restoredAt.current = saved.position;
+    setRestored(true);
+  }, []);
 
   // Refs mirror state for event handlers.
   const [sleepEndsAt, setSleepEndsAt] = useState<number | null>(null);
@@ -102,6 +138,13 @@ export function PlayerProvider({ children, onPlayed }: { children: ReactNode; on
       if (autoplay) await a.play();
       db.addHistory(song.id).then(onPlayed).catch(() => {});
       setMediaSession(song);
+      // Greatest-hits compilation cover? Swap in the original album's, here and in the library.
+      originalRelease(song).then((fixed) => {
+        if (fixed.coverBig === song.coverBig && fixed.cover === song.cover) return;
+        db.setAlbumArt(song.id, fixed.album, fixed.cover, fixed.coverBig).catch(() => {});
+        setQueue((q) => q.map((s) => (s.id === song.id ? { ...s, album: fixed.album, cover: fixed.cover, coverBig: fixed.coverBig } : s)));
+        if (token === loadToken.current) setMediaSession(fixed);
+      }).catch(() => {});
     } catch (e) {
       if (token !== loadToken.current) return;
       setError(String(e));
@@ -184,20 +227,61 @@ export function PlayerProvider({ children, onPlayed }: { children: ReactNode; on
 
   const toggle = useCallback(() => {
     const a = audio.current;
-    if (!a.src) return;
+    if (!a.src) {
+      // A restored queue isn't loaded yet: start it where it was left.
+      const { queue: q, index: i } = state.current;
+      if (q[i]) { setRestored(false); load(q[i], true, restoredAt.current); restoredAt.current = 0; }
+      return;
+    }
     a.paused ? a.play().catch(() => {}) : a.pause();
-  }, []);
+  }, [load]);
+
+  useEffect(() => { if (playing) setRestored(false); }, [playing]);
+
+  // Remember the queue (and the spot in the song) for next time.
+  const posRef = useRef(0);
+  posRef.current = position;
+  useEffect(() => {
+    if (!queue.length) return;
+    const save = () => {
+      const { queue: q, index: i } = state.current;
+      const from = Math.max(0, i - MAX_SAVED / 2);
+      const songs = q.slice(from, from + MAX_SAVED);
+      localStorage.setItem(SAVED_QUEUE, JSON.stringify({ songs, index: i - from, position: Math.floor(posRef.current) }));
+    };
+    save();
+    const t = window.setInterval(() => { if (!audio.current.paused) save(); }, 15_000);
+    window.addEventListener("beforeunload", save);
+    return () => { window.clearInterval(t); window.removeEventListener("beforeunload", save); };
+  }, [queue, index, playing]);
+
+  // Autoplay: once the last song starts, add 10 similar ones (minus anything queued or played lately).
+  const radioFor = useRef<number | null>(null);
+  useEffect(() => {
+    const song = queue[index];
+    if (!song || restored || repeat !== "off" || index !== queue.length - 1 || !autoplayEnabled()) return;
+    if (radioFor.current === song.id) return;
+    radioFor.current = song.id;
+    (async () => {
+      const skip = new Set([...queue.map((s) => s.id), ...(await db.recentIds(100).catch(() => [] as number[]))]);
+      const pool = song.artistId ? await deezerApi.artistRadio(song.artistId, 40) : await deezerApi.chartTracks(40);
+      const picked = await withOriginalCovers(pool.filter((s) => !skip.has(s.id)).slice(0, 10));
+      if (!picked.length || state.current.queue[state.current.index]?.id !== song.id) return;
+      await db.insertSongs(picked).catch(() => {});
+      setQueue((q) => [...q, ...picked]);
+    })().catch(() => {});
+  }, [index, queue.length, repeat, restored]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Windows media keys / overlay (SMTC) via the Media Session API.
   useEffect(() => {
     const ms = navigator.mediaSession;
     if (!ms) return;
-    ms.setActionHandler("play", () => audio.current.play());
+    ms.setActionHandler("play", () => (audio.current.src ? audio.current.play() : toggle()));
     ms.setActionHandler("pause", () => audio.current.pause());
     ms.setActionHandler("nexttrack", next);
     ms.setActionHandler("previoustrack", previous);
     ms.setActionHandler("seekto", (d) => { if (d.seekTime != null) audio.current.currentTime = d.seekTime; });
-  }, [next, previous]);
+  }, [next, previous, toggle]);
 
   // Space = play/pause (unless typing).
   useEffect(() => {
@@ -215,7 +299,13 @@ export function PlayerProvider({ children, onPlayed }: { children: ReactNode; on
   const value = useMemo<Player>(() => ({
     queue, index, current, playing, loading, error, position, duration, shuffle, repeat, volume,
     audioEl: audio.current,
-    sleepEndsAt, sleepAtSongEnd,
+    sleepEndsAt, sleepAtSongEnd, restored,
+    startRadio: async (song) => {
+      const pool = song.artistId ? await deezerApi.artistRadio(song.artistId, 40).catch(() => [] as Song[]) : [];
+      const seen = new Set([song.id]);
+      const similar = await withOriginalCovers(pool.filter((s) => !seen.has(s.id) && !!seen.add(s.id)).slice(0, 24));
+      value.playSongs([song, ...similar]);
+    },
     setSleep: (when) => {
       setSleepAtSongEnd(when === "end");
       setSleepEndsAt(typeof when === "number" ? Date.now() + when * 60_000 : null);
@@ -230,6 +320,7 @@ export function PlayerProvider({ children, onPlayed }: { children: ReactNode; on
         i = 0;
       }
       setShuffle(shuffledMode);
+      setRestored(false);
       setQueue(q);
       state.current.queue = q;
       goTo(i);
@@ -249,7 +340,11 @@ export function PlayerProvider({ children, onPlayed }: { children: ReactNode; on
       if (i < index) setIndex((x) => x - 1);
     },
     toggle, next, previous,
-    seek: (sec) => { audio.current.currentTime = sec; setPosition(sec); },
+    seek: (sec) => {
+      if (!audio.current.src) restoredAt.current = sec; // restored queue: start from here when played
+      else audio.current.currentTime = sec;
+      setPosition(sec);
+    },
     setVolume: (v) => {
       audio.current.volume = v;
       setVolumeState(v);
@@ -277,7 +372,7 @@ export function PlayerProvider({ children, onPlayed }: { children: ReactNode; on
       setIndex(idx);
       load(songs[idx], true, positionSec);
     },
-  }), [queue, index, current, playing, loading, error, position, duration, shuffle, repeat, volume, sleepEndsAt, sleepAtSongEnd, goTo, toggle, next, previous, load]); // eslint-disable-line react-hooks/exhaustive-deps
+  }), [queue, index, current, playing, loading, error, position, duration, shuffle, repeat, volume, sleepEndsAt, sleepAtSongEnd, restored, goTo, toggle, next, previous, load]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

@@ -175,6 +175,12 @@ pub fn song(c: &Connection, id: i64) -> Result<Option<Song>> {
     Ok(query_songs(c, &format!("SELECT {SONG_COLS} FROM songs WHERE id = ?1"), [id])?.into_iter().next())
 }
 
+/// The original album's name and cover, found after the song was saved (greatest-hits fix).
+pub fn set_album_art(c: &Connection, id: i64, album: &str, cover: &str, cover_big: &str) -> Result<()> {
+    c.execute("UPDATE songs SET album = ?2, cover = ?3, cover_big = ?4 WHERE id = ?1", params![id, album, cover, cover_big])?;
+    Ok(())
+}
+
 pub fn set_youtube_id(c: &Connection, id: i64, yt: &str) -> Result<()> {
     c.execute("UPDATE songs SET youtube_id = ?2 WHERE id = ?1", params![id, yt])?;
     Ok(())
@@ -241,6 +247,85 @@ pub fn recent(c: &Connection, limit: i64) -> Result<Vec<Song>> {
         ),
         [limit],
     )
+}
+
+pub fn recent_song_ids(c: &Connection, limit: i64) -> Result<Vec<i64>> {
+    let mut stmt = c.prepare("SELECT song_id FROM history ORDER BY played_at DESC LIMIT ?1")?;
+    let rows = stmt.query_map([limit], |r| r.get(0))?.collect::<rusqlite::Result<Vec<i64>>>()?;
+    Ok(rows)
+}
+
+// ---------------- listening stats ----------------
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SongPlays {
+    pub song: Song,
+    pub plays: i64,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ArtistPlays {
+    pub artist_id: i64,
+    pub artist: String,
+    pub plays: i64,
+    pub cover: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Stats {
+    pub minutes: i64,
+    pub plays: i64,
+    pub song_count: i64,
+    pub top_songs: Vec<SongPlays>,
+    pub top_artists: Vec<ArtistPlays>,
+}
+
+fn prefixed_cols(prefix: &str) -> String {
+    SONG_COLS.split(", ").map(|c| format!("{prefix}.{c}")).collect::<Vec<_>>().join(", ")
+}
+
+/// Plays since `since` (ms): a play is counted each time a song starts.
+pub fn stats(c: &Connection, since: i64) -> Result<Stats> {
+    let seconds: i64 = c.query_row(
+        "SELECT COALESCE(SUM(s.duration_sec), 0) FROM history h JOIN songs s ON s.id = h.song_id WHERE h.played_at >= ?1",
+        [since], |r| r.get(0))?;
+    let plays: i64 = c.query_row("SELECT COUNT(*) FROM history WHERE played_at >= ?1", [since], |r| r.get(0))?;
+    let song_count: i64 = c.query_row("SELECT COUNT(DISTINCT song_id) FROM history WHERE played_at >= ?1", [since], |r| r.get(0))?;
+
+    let mut stmt = c.prepare(&format!(
+        "SELECT {}, COUNT(h.id) AS plays FROM history h JOIN songs s ON s.id = h.song_id
+         WHERE h.played_at >= ?1 GROUP BY s.id ORDER BY plays DESC, MAX(h.played_at) DESC LIMIT 10",
+        prefixed_cols("s")))?;
+    let top_songs = stmt
+        .query_map([since], |r| Ok(SongPlays { song: row_song(r)?, plays: r.get(12)? }))?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+
+    let mut stmt = c.prepare(
+        "SELECT s.artist_id, s.artist, COUNT(h.id) AS plays, MAX(s.cover) FROM history h JOIN songs s ON s.id = h.song_id
+         WHERE h.played_at >= ?1 GROUP BY s.artist_id ORDER BY plays DESC LIMIT 5")?;
+    let top_artists = stmt
+        .query_map([since], |r| Ok(ArtistPlays { artist_id: r.get(0)?, artist: r.get(1)?, plays: r.get(2)?, cover: r.get(3)? }))?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+
+    Ok(Stats { minutes: seconds / 60, plays, song_count, top_songs, top_artists })
+}
+
+// ---------------- storage ----------------
+
+/// Downloads with their file type and how much they've been played, least recently played first.
+pub fn download_usage(c: &Connection) -> Result<Vec<(Song, Option<String>, Option<i64>, i64)>> {
+    let mut stmt = c.prepare(&format!(
+        "SELECT {}, s.file_ext, MAX(h.played_at) AS last_played, COUNT(h.id)
+         FROM songs s LEFT JOIN history h ON h.song_id = s.id
+         WHERE s.downloaded = 1 GROUP BY s.id ORDER BY last_played IS NOT NULL, last_played ASC",
+        prefixed_cols("s")))?;
+    let rows = stmt
+        .query_map([], |r| Ok((row_song(r)?, r.get(12)?, r.get(13)?, r.get(14)?)))?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(rows)
 }
 
 pub fn clear_history(c: &Connection) -> Result<()> {

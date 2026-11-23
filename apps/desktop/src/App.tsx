@@ -10,6 +10,7 @@ import { Onboarding, SettingsPage } from "./setup";
 import { StoreProvider, useStore, type Route } from "./store";
 import { useUpdate } from "./updates";
 import { Ambient } from "./ambient";
+import { AlbumPage, FreeSpacePage, ImportPage, LowStorageDialog, StatsPage, useLowStoragePrompt } from "./extra";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import "./App.css";
 
@@ -53,6 +54,7 @@ function Main() {
   const rail = folded || full || narrow;
   const toggleFold = () => setFolded((f) => { localStorage.setItem("sidebarFolded", f ? "0" : "1"); return !f; });
   const r = store.route;
+  const storage = useLowStoragePrompt();
 
   useEffect(() => {
     Promise.all([db.liked(), db.downloads()]).then(([l, d]) => setCounts({ liked: l.length, offline: d.length }));
@@ -153,6 +155,8 @@ function Main() {
       {!full && <SidePanel panel={panel} onClose={() => setPanel(null)} />}
       <PlayerBar panel={panel} setPanel={(x) => { setFull(false); setPanel(x); }} onExpand={() => setFull((f) => !f)} />
       {store.toast && <div className="toast">{store.toast}</div>}
+      {storage.prompt && <LowStorageDialog free={storage.prompt.free} used={storage.prompt.used} onClose={storage.dismiss}
+        onLater={storage.snooze} onReview={() => { storage.dismiss(); go({ name: "freeSpace" }); }} />}
       {creating && <NameDialog title="New playlist" confirm="Create" onClose={() => setCreating(false)} onConfirm={async (n) => {
         await db.createPlaylist(n); store.refresh(); setCreating(false);
       }} />}
@@ -171,6 +175,10 @@ function Page({ route }: { route: Route }) {
     case "mix": return <MixPage />;
     case "playlist": return <PlaylistPage key={route.id} id={route.id} />;
     case "artist": return <ArtistPage key={route.id} id={route.id} />;
+    case "album": return <AlbumPage key={route.id} id={route.id} />;
+    case "stats": return <StatsPage />;
+    case "import": return <ImportPage />;
+    case "freeSpace": return <FreeSpacePage />;
     case "settings": return <SettingsPage />;
     case "editArtists": return <EditArtistsPage />;
   }

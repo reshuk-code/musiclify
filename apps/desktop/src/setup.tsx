@@ -16,6 +16,7 @@ import { ArtistPicker } from "./pages";
 import { useStore } from "./store";
 import { setUpdatesEnabled, updatesEnabled } from "./updates";
 import { ambientEnabled, setAmbientEnabled } from "./ambient";
+import { autoplayEnabled, setAutoplayEnabled } from "./player";
 import { getVersion } from "@tauri-apps/api/app";
 
 // ---------------------------------------------------------------- onboarding
@@ -179,6 +180,7 @@ export function SettingsPage() {
   const [autostart, setAutostart] = useState(true);
   const [checkUpdates, setCheckUpdates] = useState(updatesEnabled());
   const [ambient, setAmbient] = useState(ambientEnabled());
+  const [autoplay, setAutoplay] = useState(autoplayEnabled());
   const [version, setVersion] = useState("");
   useEffect(() => { getVersion().then(setVersion).catch(() => {}); }, []);
   useEffect(() => { db.autostartGet().then(setAutostart).catch(() => {}); }, []);
@@ -229,8 +231,15 @@ export function SettingsPage() {
       <h3 className="group">Storage</h3>
       {row("Downloaded songs", `${(storage / 1024 / 1024).toFixed(1)} MB · encrypted, only playable in Musiclify`,
         <button className="btn ghost sm danger" onClick={async () => { if (confirm("Remove all downloaded songs?")) { await db.clearDownloads(); store.refresh(); } }}>Remove all</button>)}
+      {row("Free up space", "Choose which downloads to remove, with their sizes",
+        <button className="btn ghost sm" onClick={() => store.navigate({ name: "freeSpace" })}>Review</button>)}
       {row("Listening history", "Clears Recently played",
         <button className="btn ghost sm" onClick={async () => { await db.clearHistory(); store.refresh(); }}>Clear</button>)}
+
+      <h3 className="group">Playback</h3>
+      {row("Autoplay", "When your queue ends, keep playing similar songs.",
+        <label className="switch"><input type="checkbox" checked={autoplay}
+          onChange={(e) => { setAutoplayEnabled(e.target.checked); setAutoplay(e.target.checked); }} /><span /></label>)}
 
       <h3 className="group">Look</h3>
       {row("Ambient light",

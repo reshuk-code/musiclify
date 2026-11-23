@@ -12,6 +12,10 @@ export type Route =
   | { name: "mix" }
   | { name: "playlist"; id: number }
   | { name: "artist"; id: number }
+  | { name: "album"; id: number }
+  | { name: "stats" }
+  | { name: "import" }
+  | { name: "freeSpace" }
   | { name: "settings" }
   | { name: "editArtists" };
 

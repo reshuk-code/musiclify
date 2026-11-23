@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   Check, CheckCircle2, Download, Heart, ListEnd, ListPlus, MoreHorizontal, Pause, Play, Plus, Trash2, User, X,
-  ListMusic, MinusCircle,
+  ListMusic, MinusCircle, Radio, Share2,
 } from "lucide-react";
+import { ShareDialog } from "./share";
 import { db, formatTime, type Artist, type Song } from "./api";
 import { usePlayer } from "./player";
 import { useStore } from "./store";
@@ -101,11 +102,12 @@ export function SongRow({ song, index, onPlay, onRemove }: { song: Song; index: 
   );
 }
 
-export function SongMenu({ song, onRemove }: { song: Song; onRemove?: () => void }) {
+export function SongMenu({ song, onRemove, up }: { song: Song; onRemove?: () => void; up?: boolean }) {
   const p = usePlayer();
   const store = useStore();
   const [open, setOpen] = useState(false);
   const [pick, setPick] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const downloaded = store.downloadedIds.has(song.id);
 
@@ -124,8 +126,9 @@ export function SongMenu({ song, onRemove }: { song: Song; onRemove?: () => void
     <div className="menu-wrap" ref={ref}>
       <button className="icon-btn" onClick={() => setOpen((o) => !o)} aria-label="More options"><MoreHorizontal size={18} /></button>
       {open && (
-        <div className="menu">
+        <div className={`menu ${up ? "up" : ""}`}>
           {item("Play next", <ListEnd size={16} />, () => { p.playNext(song); store.showToast("Playing next"); })}
+          {song.artistId ? item("Start radio", <Radio size={16} />, () => { p.startRadio(song); store.showToast("Starting radio…"); }) : null}
           {item("Add to queue", <ListMusic size={16} />, () => { p.addToQueue(song); store.showToast("Added to queue"); })}
           {item("Add to playlist", <ListPlus size={16} />, () => setPick(true))}
           {downloaded
@@ -135,9 +138,12 @@ export function SongMenu({ song, onRemove }: { song: Song; onRemove?: () => void
             })}
           {onRemove && item("Remove from this playlist", <MinusCircle size={16} />, onRemove)}
           {song.artistId ? item("Go to artist", <User size={16} />, () => store.navigate({ name: "artist", id: song.artistId })) : null}
+          {item("Share", <Share2 size={16} />, () => setSharing(true))}
         </div>
       )}
       {pick && <AddToPlaylist song={song} onClose={() => setPick(false)} />}
+      {sharing && <ShareDialog spec={{ kind: "song", title: song.title, artist: song.artist, cover: song.coverBig || song.cover }}
+        name={`${song.title} - ${song.artist}`} onClose={() => setSharing(false)} />}
     </div>
   );
 }
