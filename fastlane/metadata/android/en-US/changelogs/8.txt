@@ -1,0 +1,2 @@
+- Artist pages and search now show every song and album, even where Deezer hides some catalogues (for example Ed Sheeran's own albums in Nepal)
+- Album pages, radio and cover fixes work for those artists too
