@@ -3,8 +3,8 @@
  * Bump these when publishing a new build: see the release rule in CLAUDE.md / CONTRIBUTING.md.
  */
 const RELEASES = "https://github.com/reshuk-code/musiclify/releases/download";
-const DESKTOP = "0.3.0";
-const ANDROID_VERSION = "0.6.0";
+const DESKTOP = "0.3.1";
+const ANDROID_VERSION = "0.6.1";
 
 export const WINDOWS = {
   href: `${RELEASES}/desktop-v${DESKTOP}/Musiclify_${DESKTOP}_x64-setup.exe`,
