@@ -52,6 +52,8 @@ musiclify/
 | **Sync** | Likes, playlists, history, favourite artists, and deletions sync bidirectionally. Newest-change-wins with tombstones for deletions |
 | **Match cache** | Optional (on by default). Devices share `Deezer ID → YouTube ID` so others skip the slow search. No audio, lyrics, or personal data is exchanged |
 
+view the architecture https://github.com/reshuk-code/musiclify/blob/main/docs/architecture.excalidraw
+
 ## Building
 
 ### Android
