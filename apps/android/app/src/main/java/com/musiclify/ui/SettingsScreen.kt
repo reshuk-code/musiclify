@@ -24,7 +24,7 @@ import com.musiclify.data.Artist
 import kotlinx.coroutines.launch
 
 @Composable
-fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit, editArtists: () -> Unit, linkDevice: () -> Unit) {
+fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit, editArtists: () -> Unit, linkDevice: () -> Unit, freeUpSpace: () -> Unit) {
     val context = LocalContext.current
     val favorites by vm.favoriteArtists.collectAsStateWithLifecycle()
     var renaming by remember { mutableStateOf(false) }
@@ -51,6 +51,7 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit, editArtists: () -> Unit
 
             Group("Storage")
             Setting("Downloaded songs", "${Formatter.formatShortFileSize(context, storage)} used · encrypted, only playable in Musiclify")
+            Setting("Free up space", "Choose which downloads to remove, with their sizes", onClick = freeUpSpace)
             Setting("Remove all downloads", "Songs will download again when you play them") { confirmClear = true }
             Setting("Clear listening history", "Removes Recently played") { vm.clearHistory() }
 
@@ -91,6 +92,15 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit, editArtists: () -> Unit
                 },
                 trailingContent = { Switch(checked = vm.shareMatches, onCheckedChange = vm::updateShareMatches) },
                 modifier = Modifier.clickable { vm.updateShareMatches(!vm.shareMatches) },
+            )
+
+            Group("Playback")
+            ListItem(
+                colors = ClearListItem,
+                headlineContent = { Text("Autoplay") },
+                supportingContent = { Text("When your queue ends, keep playing similar songs.") },
+                trailingContent = { Switch(checked = vm.autoplay, onCheckedChange = vm::updateAutoplay) },
+                modifier = Modifier.clickable { vm.updateAutoplay(!vm.autoplay) },
             )
 
             Group("Look")

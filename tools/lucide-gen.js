@@ -15,6 +15,7 @@ const ICONS = {
   ListEnd: "ListEnd", ScanQrCode: "ScanQrCode", QrCode: "QrCode", ArrowUp: "ArrowUp", ArrowDown: "ArrowDown",
   Smartphone: "Smartphone", Monitor: "Monitor", Lock: "Lock", History: "History", Music: "Music", Timer: "Timer",
   CloudOff: "CloudOff", Wifi: "Wifi", Info: "Info", Cookie: "Cookie", HardDrive: "HardDrive", Pencil: "Pencil", MonitorSmartphone: "MonitorSmartphone", RefreshCcw: "RefreshCcw",
+  Radio: "Radio", Share2: "Share2", ChartColumn: "ChartColumn", Link: "Link", Square: "Square", SquareCheck: "SquareCheck",
 };
 const FILLED = ["Play", "Pause", "SkipForward", "SkipBack", "Heart"];
 

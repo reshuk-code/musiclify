@@ -3,6 +3,11 @@ package com.musiclify.data
 import android.content.Context
 import androidx.core.content.edit
 import com.musiclify.engine.KeyManager
+import org.json.JSONArray
+import org.json.JSONObject
+
+/** The queue when the app last stopped, so playback can pick up where it left off. */
+data class SavedQueue(val songIds: List<Long>, val index: Int, val positionMs: Long)
 
 data class Pairing(val host: String, val port: Int, val deviceId: String, val key: ByteArray, val pcName: String)
 
@@ -64,6 +69,36 @@ class Prefs(context: Context, private val keys: KeyManager) {
         get() = sp.getString("dismissed_update", "").orEmpty()
         set(value) = sp.edit { putString("dismissed_update", value) }
 
+    /** When the queue runs out, keep playing similar songs. */
+    var autoplay: Boolean
+        get() = sp.getBoolean("autoplay", true)
+        set(value) = sp.edit { putBoolean("autoplay", value) }
+
+    var savedQueue: SavedQueue?
+        get() = runCatching {
+            val o = JSONObject(sp.getString("saved_queue", null) ?: return null)
+            val ids = o.getJSONArray("ids").let { a -> (0 until a.length()).map { a.getLong(it) } }
+            SavedQueue(ids, o.getInt("index"), o.getLong("position")).takeIf { ids.isNotEmpty() }
+        }.getOrNull()
+        set(q) = sp.edit {
+            if (q == null) remove("saved_queue")
+            else putString("saved_queue", JSONObject().put("ids", JSONArray(q.songIds)).put("index", q.index)
+                .put("position", q.positionMs).toString())
+        }
+
+    /** Newest first, at most [MAX_RECENT_SEARCHES]. */
+    var recentSearches: List<String>
+        get() = runCatching {
+            val a = JSONArray(sp.getString("recent_searches", "[]"))
+            (0 until a.length()).map { a.getString(it) }
+        }.getOrDefault(emptyList())
+        set(value) = sp.edit { putString("recent_searches", JSONArray(value.take(MAX_RECENT_SEARCHES)).toString()) }
+
+    /** "Not now" on the low-storage prompt: don't ask again before this time. */
+    var storagePromptSnoozedUntil: Long
+        get() = sp.getLong("storage_snooze", 0L)
+        set(value) = sp.edit { putLong("storage_snooze", value) }
+
     var lastSync: Long
         get() = sp.getLong("last_sync", 0L)
         set(value) = sp.edit { putLong("last_sync", value) }
@@ -97,6 +132,8 @@ class Prefs(context: Context, private val keys: KeyManager) {
         }
 
     companion object {
+        const val MAX_RECENT_SEARCHES = 10
+
         /** Convert a Netscape cookies.txt export into a Cookie header for youtube.com. */
         fun parseCookiesTxt(text: String): String? = text.lineSequence()
             .map { it.trim() }

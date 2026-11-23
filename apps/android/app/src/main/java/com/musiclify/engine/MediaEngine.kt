@@ -138,6 +138,21 @@ class MediaEngine(
 
     fun storageBytes(): Long = cache.cacheSpace
 
+    /** Space this song's encrypted file takes on the device. */
+    fun sizeOf(songId: Long): Long = cache.getCachedSpans(cacheKey(songId)).sumOf { it.length }
+
+    /** Remove several downloads at once (from the "free up space" screen). */
+    fun removeDownloads(songIds: Collection<Long>, onDone: () -> Unit = {}) {
+        songIds.forEach { writers.remove(it)?.cancel() }
+        scope.launch {
+            songIds.forEach { id ->
+                cache.removeResource(cacheKey(id))
+                dao.setDownloaded(id, false)
+            }
+            onDone()
+        }
+    }
+
     private fun isFullyCached(songId: Long): Boolean {
         val k = cacheKey(songId)
         val length = ContentMetadata.getContentLength(cache.getContentMetadata(k))

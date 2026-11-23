@@ -1,9 +1,11 @@
-@file:OptIn(ExperimentalMaterial3Api::class)
+@file:OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 
 package com.musiclify.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -26,6 +28,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.Player
 import com.musiclify.data.Lyrics
+import com.musiclify.data.Song
+import kotlinx.coroutines.launch
 
 // ---------------------------------------------------------------- mini player
 
@@ -48,7 +52,7 @@ fun MiniPlayer(vm: AppViewModel, onOpen: () -> Unit) {
                 Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                     Text(p.currentTitle, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.SemiBold)
                     Text(
-                        p.error ?: when (step) {
+                        p.error ?: if (p.restored) "Continue listening · ${p.currentArtist}" else when (step) {
                             is SaveStep.Saving -> "${p.currentArtist} · saving for offline"
                             SaveStep.Finding -> "Finding song…"
                             else -> p.currentArtist
@@ -144,10 +148,17 @@ fun PlayerScreen(vm: AppViewModel, onClose: () -> Unit, openArtist: (Long) -> Un
     var showQueue by remember { mutableStateOf(false) }
     var showSleep by remember { mutableStateOf(false) }
     var menuOpen by remember { mutableStateOf(false) }
-    var artistId by remember(id) { mutableStateOf(0L) }
+    var pickPlaylist by remember { mutableStateOf(false) }
+    var song by remember(id) { mutableStateOf<Song?>(null) }
+    val artistId = song?.artistId ?: 0L
     var lyrics by remember(id) { mutableStateOf<Lyrics?>(null) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = rememberCoroutineScope()
+    val shareSong: (String?) -> Unit = { line ->
+        scope.launch { ShareCard.shareSong(context, p.currentTitle, p.currentArtist, p.currentArtwork, line) }
+    }
     LaunchedEffect(id) {
-        artistId = vm.songById(id)?.artistId ?: 0L
+        song = vm.songById(id)
         lyrics = vm.lyrics(id)
     }
     val isLiked = id in liked
@@ -183,6 +194,20 @@ fun PlayerScreen(vm: AppViewModel, onClose: () -> Unit, openArtist: (Long) -> Un
                         leadingIcon = { Icon(Lucide.Moon, null, tint = if (p.sleepTimerEndsAt != null || p.sleepAtSongEnd) Accent else LocalContentColor.current) },
                         onClick = { menuOpen = false; showSleep = true },
                     )
+                    song?.let { s ->
+                        DropdownMenuItem(
+                            text = { Text("Add to playlist") }, leadingIcon = { Icon(Lucide.ListPlus, null) },
+                            onClick = { menuOpen = false; pickPlaylist = true },
+                        )
+                        if (s.artistId != 0L) DropdownMenuItem(
+                            text = { Text("Start radio") }, leadingIcon = { Icon(Lucide.Radio, null) },
+                            onClick = { menuOpen = false; vm.startRadio(s) },
+                        )
+                    }
+                    DropdownMenuItem(
+                        text = { Text("Share") }, leadingIcon = { Icon(Lucide.Share2, null) },
+                        onClick = { menuOpen = false; shareSong(null) },
+                    )
                     if (id !in downloaded) DropdownMenuItem(
                         text = { Text("Download for offline") }, leadingIcon = { Icon(Lucide.Download, null) },
                         onClick = { menuOpen = false; vm.downloadById(id) },
@@ -196,7 +221,7 @@ fun PlayerScreen(vm: AppViewModel, onClose: () -> Unit, openArtist: (Long) -> Un
         }
 
         if (lyricsOpen) {
-            Box(Modifier.weight(1f).fillMaxWidth()) { LyricsPanel(vm, lyrics) }
+            Box(Modifier.weight(1f).fillMaxWidth()) { LyricsPanel(vm, lyrics, onShareLine = { shareSong(it) }) }
         } else {
             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                 Cover(p.currentArtwork, Modifier.fillMaxHeight().aspectRatio(1f, matchHeightConstraintsFirst = true), corner = 16)
@@ -259,6 +284,7 @@ fun PlayerScreen(vm: AppViewModel, onClose: () -> Unit, openArtist: (Long) -> Un
     }
 
     if (showQueue) QueueSheet(vm) { showQueue = false }
+    song?.let { s -> if (pickPlaylist) AddToPlaylistDialog(s, vm) { pickPlaylist = false } }
     if (showSleep) SleepTimerDialog(vm) { showSleep = false }
 }
 
@@ -318,7 +344,7 @@ private fun SeekBar(vm: AppViewModel) {
 }
 
 @Composable
-private fun LyricsPanel(vm: AppViewModel, l: Lyrics?) {
+private fun LyricsPanel(vm: AppViewModel, l: Lyrics?, onShareLine: (String) -> Unit) {
     when {
         l == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
         l.lines.isEmpty() -> Text("No lyrics found for this song.", color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -328,8 +354,10 @@ private fun LyricsPanel(vm: AppViewModel, l: Lyrics?) {
             val listState = rememberLazyListState()
             LaunchedEffect(active) { if (active >= 0) listState.animateScrollToItem((active - 2).coerceAtLeast(0)) }
             LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
-                if (!l.synced) item {
-                    Text("Timestamps not available for this song", style = MaterialTheme.typography.labelSmall,
+                item {
+                    Text(if (l.synced) "Tap a line to jump there · long-press to share it" else
+                        "Timestamps not available for this song · long-press a line to share it",
+                        style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 12.dp))
                 }
                 itemsIndexed(l.lines) { i, line ->
@@ -344,7 +372,11 @@ private fun LyricsPanel(vm: AppViewModel, l: Lyrics?) {
                             else -> Color.White.copy(alpha = 0.32f)
                         },
                         modifier = Modifier.fillMaxWidth()
-                            .clickable(enabled = l.synced) { vm.player.seekTo(line.startMs) }
+                            .combinedClickable(
+                                enabled = line.text.isNotBlank(),
+                                onClick = { if (l.synced) vm.player.seekTo(line.startMs) },
+                                onLongClick = { onShareLine(line.text) },
+                            )
                             .padding(vertical = 8.dp),
                     )
                 }

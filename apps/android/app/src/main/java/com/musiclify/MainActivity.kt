@@ -74,6 +74,10 @@ private fun MainScaffold(vm: AppViewModel) {
         vm.syncMessage?.let { android.widget.Toast.makeText(context, it, android.widget.Toast.LENGTH_SHORT).show(); vm.syncMessage = null }
     }
 
+    // Low on storage: ask (never remove anything on our own).
+    LaunchedEffect(Unit) { vm.checkStorage() }
+    if (vm.lowStoragePrompt) LowStorageDialog(vm) { nav.navigate(Routes.FREE_SPACE) }
+
     val openArtist: (Long) -> Unit = { nav.navigate(Routes.artist(it)) }
     val actions = SongActions(vm, openArtist)
     val backStack by nav.currentBackStackEntryAsState()
@@ -130,12 +134,21 @@ private fun MainScaffold(vm: AppViewModel) {
                     PlaylistScreen(it.arguments!!.getLong("id"), vm, openArtist, nav::popBackStack)
                 }
                 composable(Routes.ARTIST, listOf(navArgument("id") { type = NavType.LongType })) {
-                    ArtistScreen(it.arguments!!.getLong("id"), vm, actions, nav::popBackStack)
+                    ArtistScreen(it.arguments!!.getLong("id"), vm, actions, openAlbum = { a -> nav.navigate(Routes.album(a)) },
+                        onBack = nav::popBackStack)
+                }
+                composable(Routes.ALBUM, listOf(navArgument("id") { type = NavType.LongType })) {
+                    AlbumScreen(it.arguments!!.getLong("id"), vm, actions, nav::popBackStack)
                 }
                 composable(Routes.SETTINGS) {
                     SettingsScreen(vm, nav::popBackStack, editArtists = { nav.navigate(Routes.EDIT_ARTISTS) },
-                        linkDevice = { nav.navigate(Routes.LINK) })
+                        linkDevice = { nav.navigate(Routes.LINK) }, freeUpSpace = { nav.navigate(Routes.FREE_SPACE) })
                 }
+                composable(Routes.STATS) { StatsScreen(vm, actions, nav::popBackStack) }
+                composable(Routes.IMPORT) {
+                    ImportScreen(vm, openPlaylist = { id -> nav.popBackStack(); nav.navigate(Routes.playlist(id)) }, onBack = nav::popBackStack)
+                }
+                composable(Routes.FREE_SPACE) { FreeSpaceScreen(vm, nav::popBackStack) }
                 composable(Routes.LINK) { LinkScreen(vm, receiveOnly = false, onBack = { nav.popBackStack() }) }
                 composable(Routes.EDIT_ARTISTS) { EditArtistsScreen(vm) { nav.popBackStack() } }
             }
@@ -164,7 +177,12 @@ object Routes {
     const val MIX = "mix"
     const val PLAYLIST = "playlist/{id}"
     const val ARTIST = "artist/{id}"
+    const val ALBUM = "album/{id}"
+    const val STATS = "stats"
+    const val IMPORT = "import"
+    const val FREE_SPACE = "free-space"
 
     fun playlist(id: Long) = "playlist/$id"
     fun artist(id: Long) = "artist/$id"
+    fun album(id: Long) = "album/$id"
 }

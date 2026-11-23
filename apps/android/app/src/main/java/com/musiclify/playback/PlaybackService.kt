@@ -3,6 +3,7 @@ package com.musiclify.playback
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.util.Log
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
@@ -24,12 +25,18 @@ import com.google.common.util.concurrent.ListenableFuture
 import com.musiclify.MainActivity
 import com.musiclify.MusiclifyApp
 import com.musiclify.data.HistoryEntry
+import com.musiclify.data.SavedQueue
 import com.musiclify.engine.MediaEngine
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 
 /**
  * Background playback with notification + lock-screen controls (Media3 handles both).
@@ -63,7 +70,15 @@ class PlaybackService : MediaSessionService() {
             .setHandleAudioBecomingNoisy(true) // pause when headphones are unplugged
             .setWakeMode(C.WAKE_MODE_NETWORK)
             .build()
-        player.addListener(PlayerEvents(player))
+        val events = PlayerEvents(player)
+        player.addListener(events)
+        // Remember the position now and then, so "continue listening" is close even if the app is killed.
+        scope.launch {
+            while (isActive) {
+                delay(15_000)
+                if (player.isPlaying) events.saveQueue()
+            }
+        }
         Companion.player = player
         PlayerWidget.started(this)
         lyrics = LockScreenLyrics(player, scope, enabled = { graph.prefs.lockScreenLyrics }, load = graph::lyricsFor)
@@ -86,6 +101,7 @@ class PlaybackService : MediaSessionService() {
     }
 
     override fun onDestroy() {
+        Companion.player?.let { saveQueue(it) }
         lyrics?.stop()
         Companion.player = null
         PlayerWidget.stopped(this)
@@ -113,24 +129,64 @@ class PlaybackService : MediaSessionService() {
         private var retriedId: Long? = null
         private var lastId: Long? = null
         private var widgetKey: String? = null
+        /** Widget updates load artwork off the main thread; run them in order so a slow one can't land last. */
+        private val widgetLock = Mutex()
+
+        private var radioFor: Long? = null
 
         override fun onEvents(player: Player, events: Player.Events) {
             if (events.containsAny(Player.EVENT_MEDIA_ITEM_TRANSITION, Player.EVENT_IS_PLAYING_CHANGED,
                     Player.EVENT_MEDIA_METADATA_CHANGED)) updateWidget()
+            if (events.containsAny(Player.EVENT_MEDIA_ITEM_TRANSITION, Player.EVENT_TIMELINE_CHANGED,
+                    Player.EVENT_REPEAT_MODE_CHANGED, Player.EVENT_SHUFFLE_MODE_ENABLED_CHANGED)) autoplay()
+            if (events.containsAny(Player.EVENT_MEDIA_ITEM_TRANSITION, Player.EVENT_IS_PLAYING_CHANGED,
+                    Player.EVENT_POSITION_DISCONTINUITY)) saveQueue()
+        }
+
+        fun saveQueue() = saveQueue(player)
+
+        /**
+         * Autoplay: once the last song in the queue starts, add similar songs (the artist's Deezer
+         * radio, minus anything queued or played lately) so the music doesn't just stop.
+         */
+        private fun autoplay() {
+            if (!graph.prefs.autoplay || player.repeatMode != Player.REPEAT_MODE_OFF) return
+            if (player.mediaItemCount == 0 || player.nextMediaItemIndex != C.INDEX_UNSET) return
+            val current = player.currentMediaItem?.mediaId?.toLongOrNull() ?: return
+            if (radioFor == current) return
+            radioFor = current
+            scope.launch {
+                val seed = withContext(Dispatchers.IO) { graph.dao.song(current) } ?: return@launch
+                val skip = (0 until player.mediaItemCount).mapNotNull { player.getMediaItemAt(it).mediaId.toLongOrNull() }.toSet() +
+                    withContext(Dispatchers.IO) { graph.dao.recentSongIds(100) }
+                val songs = runCatching { similarSongs(seed.artistId, skip) }.getOrDefault(emptyList())
+                if (songs.isEmpty() || player.currentMediaItem?.mediaId != current.toString()) return@launch
+                graph.dao.insertSongs(songs)
+                player.addMediaItems(songs.map { it.toMediaItem().forPlayback() })
+                prefetchNext()
+            }
+        }
+
+        private suspend fun similarSongs(artistId: Long, skip: Set<Long>): List<com.musiclify.data.Song> {
+            val pool = if (artistId > 0) graph.deezer.artistRadio(artistId, 40) else graph.deezer.chartTracks(40)
+            val picked = pool.filter { it.id !in skip }.distinctBy { it.id }.take(AUTOPLAY_BATCH)
+            return graph.deezer.withOriginalCovers(picked)
         }
 
         /** Push song + play state to the home-screen widget (lyric-line metadata changes are skipped). */
         private fun updateWidget() {
             val item = player.currentMediaItem ?: return
             val meta = item.mediaMetadata
-            val key = "${item.mediaId}|${player.isPlaying}"
+            val key = "${item.mediaId}|${player.isPlaying}|${meta.artworkUri}"
             if (key == widgetKey) return
             widgetKey = key
             val title = meta.title?.toString().orEmpty()
             val artist = meta.realArtist()
             val art = meta.artworkUri?.toString()
             val playing = player.isPlaying
-            scope.launch(Dispatchers.IO) { PlayerWidget.update(this@PlaybackService, title, artist, art, playing) }
+            scope.launch(Dispatchers.IO) {
+                widgetLock.withLock { PlayerWidget.update(this@PlaybackService, title, artist, art, playing) }
+            }
         }
 
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
@@ -141,6 +197,27 @@ class PlaybackService : MediaSessionService() {
             lastId = id
             scope.launch(Dispatchers.IO) { graph.dao.addHistory(HistoryEntry(songId = id, playedAt = System.currentTimeMillis())) }
             prefetchNext()
+            fixArtwork(id)
+        }
+
+        /**
+         * Songs saved before (or played from a list that hadn't been checked yet) may carry a
+         * greatest-hits compilation's cover. Look up the original album and, if it differs, save it
+         * and swap it into the queue so the notification, lock screen and widget show the right art.
+         */
+        private fun fixArtwork(id: Long) = scope.launch {
+            val song = withContext(Dispatchers.IO) { graph.dao.song(id) } ?: return@launch
+            val fixed = graph.deezer.originalRelease(song)
+            if (fixed.cover == song.cover && fixed.coverBig == song.coverBig) return@launch
+            graph.dao.setAlbumArt(id, fixed.album, fixed.cover, fixed.coverBig)
+            val art = Uri.parse(fixed.coverBig.ifEmpty { fixed.cover })
+            for (i in 0 until player.mediaItemCount) {
+                val item = player.getMediaItemAt(i)
+                if (item.mediaId != id.toString() || item.mediaMetadata.artworkUri == art) continue
+                val meta = item.mediaMetadata.buildUpon().setArtworkUri(art).setAlbumTitle(fixed.album).build()
+                // Same URI, so ExoPlayer only updates the metadata and keeps playing.
+                player.replaceMediaItem(i, item.buildUpon().setMediaMetadata(meta).build())
+            }
         }
 
         override fun onPlaybackStateChanged(state: Int) {
@@ -184,6 +261,20 @@ class PlaybackService : MediaSessionService() {
 
     companion object {
         private const val TAG = "PlaybackService"
+        private const val AUTOPLAY_BATCH = 10
+        /** Songs around the current one that are kept for "continue listening". */
+        private const val MAX_SAVED = 300
+
+        private fun saveQueue(player: Player) {
+            val prefs = MusiclifyApp.graph.prefs
+            val count = player.mediaItemCount
+            if (count == 0) return
+            val index = player.currentMediaItemIndex.coerceIn(0, count - 1)
+            val from = (index - MAX_SAVED / 2).coerceAtLeast(0)
+            val to = (from + MAX_SAVED).coerceAtMost(count)
+            val ids = (from until to).mapNotNull { player.getMediaItemAt(it).mediaId.toLongOrNull() }
+            prefs.savedQueue = SavedQueue(ids, index - from, player.currentPosition.coerceAtLeast(0))
+        }
 
         /** The live player while the service runs (same process), for the home-screen widget. */
         @Volatile

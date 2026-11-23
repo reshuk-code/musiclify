@@ -33,6 +33,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.musiclify.data.Artist
 import com.musiclify.data.Song
+import kotlinx.coroutines.launch
 
 val Accent = Color(0xFFFF7A59)
 val AccentSoft = Color(0xFF3A2620)
@@ -185,11 +186,14 @@ fun SongMenuButton(song: Song, actions: SongActions) {
     var pickPlaylist by remember { mutableStateOf(false) }
     val liked by vm.likedIds.collectAsStateWithLifecycle()
     val downloaded by vm.downloadedIds.collectAsStateWithLifecycle()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = rememberCoroutineScope()
 
     Box {
         IconButton(onClick = { open = true }) { Icon(Lucide.EllipsisVertical, contentDescription = "More options") }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             MenuItem("Play next", Lucide.ListEnd) { vm.playNext(song); open = false }
+            if (song.artistId != 0L) MenuItem("Start radio", Lucide.Radio) { vm.startRadio(song); open = false }
             MenuItem("Add to queue", Lucide.ListMusic) { vm.addToQueue(song); open = false }
             val isLiked = song.id in liked
             MenuItem(if (isLiked) "Remove from Liked" else "Like", if (isLiked) Lucide.HeartFilled else Lucide.Heart) {
@@ -206,6 +210,10 @@ fun SongMenuButton(song: Song, actions: SongActions) {
             }
             if (song.artistId != 0L) {
                 MenuItem("Go to artist", Lucide.User) { actions.openArtist(song.artistId); open = false }
+            }
+            MenuItem("Share", Lucide.Share2) {
+                open = false
+                scope.launch { ShareCard.shareSong(context, song.title, song.artist, song.coverBig.ifEmpty { song.cover }) }
             }
         }
     }

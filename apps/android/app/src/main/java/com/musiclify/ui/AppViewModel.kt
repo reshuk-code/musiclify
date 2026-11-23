@@ -8,6 +8,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.musiclify.BuildConfig
 import com.musiclify.MusiclifyApp
+import com.musiclify.data.Album
 import com.musiclify.data.AppUpdate
 import com.musiclify.data.Artist
 import com.musiclify.data.FavoriteArtist
@@ -37,8 +38,40 @@ sealed interface HomeSection {
 }
 
 const val MIX_TITLE = "Your mix"
+private const val LOW_STORAGE_BYTES = 1L * 1024 * 1024 * 1024
+private const val COMFORTABLE_BYTES = 2L * 1024 * 1024 * 1024
 /** How long a home feed (and its mix) is kept before it is rebuilt when home is shown again. */
 private const val HOME_TTL_MS = 30 * 60 * 1000L
+
+/** Listening stats for one period, from the play history kept on this phone. */
+data class ListeningStats(
+    val minutes: Long,
+    val plays: Int,
+    val songCount: Int,
+    val topSongs: List<com.musiclify.data.SongPlays>,
+    val topArtists: List<com.musiclify.data.ArtistPlays>,
+)
+
+enum class StatsPeriod(val label: String) { MONTH("This month"), YEAR("This year"), ALL("All time") }
+
+/** A download on the "free up space" screen. */
+data class DownloadItem(val song: Song, val bytes: Long, val lastPlayed: Long?, val plays: Int)
+
+sealed interface ImportState {
+    data object Idle : ImportState
+    data object Reading : ImportState
+    data class Matching(val name: String, val done: Int, val total: Int) : ImportState
+    data class Done(val result: com.musiclify.data.ImportResult, val playlistId: Long) : ImportState
+    data class Failed(val message: String) : ImportState
+}
+
+data class ArtistPage(
+    val artist: Artist,
+    val top: List<Song>,
+    val albums: List<Album>,
+    val singles: List<Album>,
+    val related: List<Artist>,
+)
 
 data class SearchResults(val songs: List<Song> = emptyList(), val artists: List<Artist> = emptyList())
 
@@ -216,6 +249,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val recent = dao.recentSongs(20).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     init {
+        player.onConnected = { restoreQueue() }
         if (onboarded) {
             loadHome()
             syncNow(silent = true) // auto-sync with the paired PC whenever the app opens
@@ -256,10 +290,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             val favs = dao.favoriteArtists().first()
             val picked = pickFeedArtists(favs)
             home = coroutineScope {
-                val chart = async { runCatching { deezer.chartTracks(30) }.getOrDefault(emptyList()) }
+                val chart = async { runCatching { deezer.withOriginalCovers(deezer.chartTracks(30)) }.getOrDefault(emptyList()) }
                 // Pull a deeper pool than we show and shuffle it, so the same 15 songs don't come back every time.
                 val tops = picked.map { a ->
-                    async { runCatching { a to deezer.artistTopTracks(a.id, 50).shuffled().take(15) }.getOrNull() }
+                    async { runCatching { a to deezer.withOriginalCovers(deezer.artistTopTracks(a.id, 50).shuffled().take(15)) }.getOrNull() }
                 }.awaitAll().filterNotNull().filter { it.second.isNotEmpty() }
                 val related = picked.take(4).map { a ->
                     async { runCatching { deezer.relatedArtists(a.id, 8) }.getOrDefault(emptyList()) }
@@ -310,6 +344,28 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         private set
     private var searchJob: Job? = null
 
+    var recentSearches by mutableStateOf(graph.prefs.recentSearches)
+        private set
+
+    /** Remember a search the user acted on (pressed search, or opened a result). */
+    fun rememberSearch(q: String = query) {
+        val text = q.trim()
+        if (text.length < 2) return
+        recentSearches = (listOf(text) + recentSearches.filterNot { it.equals(text, ignoreCase = true) })
+            .take(com.musiclify.data.Prefs.MAX_RECENT_SEARCHES)
+        graph.prefs.recentSearches = recentSearches
+    }
+
+    fun forgetSearch(q: String) {
+        recentSearches = recentSearches - q
+        graph.prefs.recentSearches = recentSearches
+    }
+
+    fun clearRecentSearches() {
+        recentSearches = emptyList()
+        graph.prefs.recentSearches = emptyList()
+    }
+
     fun onQueryChange(q: String) {
         query = q
         searchJob?.cancel()
@@ -328,6 +384,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     val artists = async { deezer.searchArtists(q.trim(), 10) }
                     SearchResults(songs.await(), artists.await())
                 }
+                // Show results right away, then swap compilation covers for the original albums'.
+                searching = false
+                val fixed = deezer.withOriginalCovers(results.songs)
+                if (fixed != results.songs) results = results.copy(songs = fixed)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -342,6 +402,26 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun play(songs: List<Song>, index: Int = 0, shuffled: Boolean = false) = viewModelScope.launch {
         dao.insertSongs(songs) // the player's resolver reads song metadata from the database
         player.playSongs(songs, index, shuffled)
+    }
+
+    /** "Start radio": this song, then similar songs from the artist's Deezer radio. */
+    fun startRadio(song: Song) = viewModelScope.launch {
+        val similar = runCatching {
+            deezer.withOriginalCovers(deezer.artistRadio(song.artistId, 40).filter { it.id != song.id }.distinctBy { it.id }.take(24))
+        }.getOrDefault(emptyList())
+        play(listOf(song) + similar)
+    }
+
+    /** Bring back last session's queue (paused) when the app opens with nothing loaded. */
+    private fun restoreQueue() = viewModelScope.launch {
+        if (!player.isEmpty) return@launch
+        val saved = graph.prefs.savedQueue ?: return@launch
+        val byId = dao.songsByIds(saved.songIds).associateBy { it.id }
+        val songs = saved.songIds.mapNotNull(byId::get)
+        if (songs.isEmpty()) return@launch
+        val current = saved.songIds.getOrNull(saved.index)
+        val index = songs.indexOfFirst { it.id == current }.coerceAtLeast(0)
+        player.restore(songs, index, if (songs[index].id == current) saved.positionMs else 0L)
     }
 
     fun playNext(song: Song) = viewModelScope.launch { dao.insertSongs(listOf(song)); player.playNext(song) }
@@ -420,11 +500,141 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     // ---------------- artist page ----------------
-    suspend fun artistPage(id: Long): Triple<Artist, List<Song>, List<Artist>> = coroutineScope {
+    suspend fun artistPage(id: Long): ArtistPage = coroutineScope {
         val artist = async { deezer.artist(id) }
-        val top = async { deezer.artistTopTracks(id, 20) }
+        val top = async { deezer.artistTopTracks(id, 50) }
+        val releases = async { runCatching { deezer.artistAlbums(id) }.getOrDefault(emptyList()) }
         val related = async { runCatching { deezer.relatedArtists(id, 12) }.getOrDefault(emptyList()) }
-        Triple(artist.await(), top.await(), related.await())
+        val all = releases.await()
+        ArtistPage(
+            artist = artist.await(),
+            top = top.await(),
+            albums = all.filter { it.type == "album" || it.type == "compile" },
+            singles = all.filter { it.type == "single" || it.type == "ep" },
+            related = related.await(),
+        )
+    }
+
+    /** Popular songs with compilation covers swapped for the original albums' (slower, so done after the page shows). */
+    suspend fun withOriginalCovers(songs: List<Song>) = deezer.withOriginalCovers(songs)
+
+    suspend fun albumPage(id: Long): Pair<Album, List<Song>> {
+        val album = deezer.album(id)
+        return album to deezer.albumTracks(album)
+    }
+
+    // ---------------- listening stats ----------------
+    suspend fun stats(period: StatsPeriod): ListeningStats = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        val since = when (period) {
+            StatsPeriod.MONTH -> java.util.Calendar.getInstance().apply {
+                set(java.util.Calendar.DAY_OF_MONTH, 1); set(java.util.Calendar.HOUR_OF_DAY, 0)
+                set(java.util.Calendar.MINUTE, 0); set(java.util.Calendar.SECOND, 0); set(java.util.Calendar.MILLISECOND, 0)
+            }.timeInMillis
+            StatsPeriod.YEAR -> java.util.Calendar.getInstance().apply {
+                set(java.util.Calendar.DAY_OF_YEAR, 1); set(java.util.Calendar.HOUR_OF_DAY, 0)
+                set(java.util.Calendar.MINUTE, 0); set(java.util.Calendar.SECOND, 0); set(java.util.Calendar.MILLISECOND, 0)
+            }.timeInMillis
+            StatsPeriod.ALL -> 0L
+        }
+        ListeningStats(
+            minutes = dao.secondsListened(since) / 60,
+            plays = dao.playCount(since),
+            songCount = dao.distinctSongCount(since),
+            topSongs = dao.topSongs(since, 10),
+            topArtists = dao.topArtists(since, 5),
+        )
+    }
+
+    // ---------------- playlist import ----------------
+    var importState by mutableStateOf<ImportState>(ImportState.Idle)
+        private set
+    private var importJob: Job? = null
+
+    fun importPlaylist(url: String) {
+        importJob?.cancel()
+        importJob = viewModelScope.launch {
+            importState = ImportState.Reading
+            try {
+                val source = graph.importer.fetch(url)
+                if (source.tracks.isEmpty()) {
+                    importState = ImportState.Failed("That playlist is empty.")
+                    return@launch
+                }
+                importState = ImportState.Matching(source.name, 0, source.tracks.size)
+                val result = graph.importer.match(source) { done, total ->
+                    importState = ImportState.Matching(source.name, done, total)
+                }
+                if (result.matched.isEmpty()) {
+                    importState = ImportState.Failed("Couldn't find any of these songs.")
+                    return@launch
+                }
+                dao.insertSongs(result.matched)
+                val now = System.currentTimeMillis()
+                val name = uniquePlaylistName(result.name)
+                val id = dao.createPlaylist(Playlist(name = name, createdAt = now))
+                // Spaced timestamps keep the playlist in its original order.
+                result.matched.forEachIndexed { i, s -> dao.addToPlaylist(PlaylistSong(id, s.id, now + i)) }
+                importState = ImportState.Done(result.copy(name = name), id)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                importState = ImportState.Failed(e.message ?: "Import failed.")
+            }
+        }
+    }
+
+    fun resetImport() {
+        importJob?.cancel()
+        importState = ImportState.Idle
+    }
+
+    private suspend fun uniquePlaylistName(base: String): String {
+        val name = base.trim().ifBlank { "Imported playlist" }
+        if (dao.playlistIdByName(name) == null) return name
+        return (2..99).map { "$name ($it)" }.firstOrNull { dao.playlistIdByName(it) == null } ?: "$name (${System.currentTimeMillis()})"
+    }
+
+    // ---------------- storage ----------------
+    /** Free space on the phone's storage and its total size, in bytes. */
+    fun deviceSpace(): Pair<Long, Long> {
+        val stat = android.os.StatFs(getApplication<Application>().filesDir.path)
+        return stat.availableBytes to stat.totalBytes
+    }
+
+    /** Low on space (under 1 GB or 10% free) while downloads take room: offer to free some up. */
+    var lowStoragePrompt by mutableStateOf(false)
+        private set
+
+    fun checkStorage() = viewModelScope.launch {
+        if (System.currentTimeMillis() < graph.prefs.storagePromptSnoozedUntil) return@launch
+        val (free, total) = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { deviceSpace() }
+        val low = free < LOW_STORAGE_BYTES || free < total / 10
+        if (low && engine.storageBytes() > 50L * 1024 * 1024) lowStoragePrompt = true
+    }
+
+    /** "Not now": don't ask again for 3 days. */
+    fun snoozeStoragePrompt() {
+        graph.prefs.storagePromptSnoozedUntil = System.currentTimeMillis() + 3 * 24 * 3600_000L
+        lowStoragePrompt = false
+    }
+
+    fun dismissStoragePrompt() {
+        lowStoragePrompt = false
+    }
+
+    suspend fun downloadItems(): List<DownloadItem> = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        dao.downloadUsage().map { DownloadItem(it.song, engine.sizeOf(it.song.id), it.lastPlayed, it.plays) }
+    }
+
+    /** How many bytes to free so the phone gets back to a comfortable amount of space (0 if it's fine). */
+    fun bytesToFree(): Long {
+        val (free, total) = deviceSpace()
+        val comfortable = maxOf(COMFORTABLE_BYTES, total / 8)
+        return (comfortable - free).coerceAtLeast(0)
+    }
+
+    fun removeDownloads(ids: Collection<Long>, onDone: () -> Unit) = engine.removeDownloads(ids) {
+        viewModelScope.launch { onDone() }
     }
 
     // ---------------- settings ----------------
@@ -453,6 +663,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun updateAmbientLight(enabled: Boolean) {
         graph.prefs.ambientLight = enabled
         ambientLight = enabled
+    }
+
+    var autoplay by mutableStateOf(graph.prefs.autoplay)
+        private set
+
+    fun updateAutoplay(enabled: Boolean) {
+        graph.prefs.autoplay = enabled // the playback service reads it when the queue runs out
+        autoplay = enabled
     }
 
     var lockScreenLyrics by mutableStateOf(graph.prefs.lockScreenLyrics)

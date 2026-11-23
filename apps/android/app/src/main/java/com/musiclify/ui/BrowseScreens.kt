@@ -35,6 +35,7 @@ import com.musiclify.Routes
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.background
+import com.musiclify.data.Album
 import com.musiclify.data.AppUpdate
 import com.musiclify.data.Artist
 import com.musiclify.data.Song
@@ -278,7 +279,7 @@ fun SearchScreen(vm: AppViewModel, actions: SongActions) {
             singleLine = true,
             shape = RoundedCornerShape(28.dp),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            keyboardActions = KeyboardActions(onSearch = { focus.clearFocus() }),
+            keyboardActions = KeyboardActions(onSearch = { vm.rememberSearch(); focus.clearFocus() }),
             modifier = Modifier.fillMaxWidth().padding(16.dp).focusRequester(focusRequester),
         )
         if (vm.searching) LinearProgressIndicator(Modifier.fillMaxWidth().padding(horizontal = 16.dp))
@@ -287,18 +288,36 @@ fun SearchScreen(vm: AppViewModel, actions: SongActions) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
             when {
                 vm.searchError != null -> item { CenteredMessage(vm.searchError!!) }
-                vm.query.isBlank() -> item { CenteredMessage("Find any song or artist.") }
+                vm.query.isBlank() && vm.recentSearches.isEmpty() -> item { CenteredMessage("Find any song or artist.") }
+                vm.query.isBlank() -> {
+                    item {
+                        SectionHeader("Recent searches") {
+                            TextButton(onClick = vm::clearRecentSearches) { Text("Clear all") }
+                        }
+                    }
+                    items(vm.recentSearches, key = { "q-$it" }) { q ->
+                        ListItem(
+                            colors = ClearListItem,
+                            headlineContent = { Text(q, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                            leadingContent = { Icon(Lucide.History, contentDescription = null) },
+                            trailingContent = {
+                                IconButton(onClick = { vm.forgetSearch(q) }) { Icon(Lucide.X, contentDescription = "Remove \"$q\"") }
+                            },
+                            modifier = Modifier.clickable { vm.onQueryChange(q) },
+                        )
+                    }
+                }
                 !vm.searching && results.songs.isEmpty() && results.artists.isEmpty() ->
                     item { CenteredMessage("No results for \"${vm.query}\".") }
             }
             if (results.artists.isNotEmpty()) {
                 item { SectionHeader("Artists") }
-                item { ArtistRow(results.artists) { actions.openArtist(it.id) } }
+                item { ArtistRow(results.artists) { vm.rememberSearch(); actions.openArtist(it.id) } }
             }
             if (results.songs.isNotEmpty()) {
                 item { SectionHeader("Songs") }
                 itemsIndexed(results.songs, key = { _, s -> s.id }) { i, song ->
-                    SongRow(song, actions) { focus.clearFocus(); vm.play(results.songs, i) }
+                    SongRow(song, actions) { vm.rememberSearch(); focus.clearFocus(); vm.play(results.songs, i) }
                 }
             }
         }
@@ -327,6 +346,8 @@ fun LibraryScreen(vm: AppViewModel, open: (String) -> Unit) {
         item { LibraryEntry("Liked Songs", "${liked.size} songs", Lucide.HeartFilled) { open(Routes.LIKED) } }
         item { LibraryEntry("Downloads", "${downloads.size} songs · play offline", Lucide.Download) { open(Routes.DOWNLOADS) } }
         item { LibraryEntry("Recently played", "${recent.size} songs", Lucide.History) { open(Routes.HISTORY) } }
+        item { LibraryEntry("Your stats", "Top songs, artists and minutes listened", Lucide.ChartColumn) { open(Routes.STATS) } }
+        item { LibraryEntry("Import playlist", "From a Spotify or YouTube link", Lucide.Link) { open(Routes.IMPORT) } }
         item { SectionHeader("Playlists") }
         if (playlists.isEmpty()) item { CenteredMessage("No playlists yet.", "Create playlist") { creating = true } }
         items(playlists, key = { it.playlist.id }) { p ->
@@ -425,26 +446,31 @@ fun PlaylistScreen(id: Long, vm: AppViewModel, openArtist: (Long) -> Unit, onBac
 // ---------------------------------------------------------------- artist
 
 @Composable
-fun ArtistScreen(id: Long, vm: AppViewModel, actions: SongActions, onBack: () -> Unit) {
-    var page by remember(id) { mutableStateOf<Triple<Artist, List<Song>, List<Artist>>?>(null) }
+fun ArtistScreen(id: Long, vm: AppViewModel, actions: SongActions, openAlbum: (Long) -> Unit, onBack: () -> Unit) {
+    var page by remember(id) { mutableStateOf<ArtistPage?>(null) }
     var error by remember(id) { mutableStateOf<String?>(null) }
     var reload by remember { mutableIntStateOf(0) }
+    var showAllTop by rememberSaveable(id) { mutableStateOf(false) }
     val favorites by vm.favoriteArtists.collectAsStateWithLifecycle()
 
     LaunchedEffect(id, reload) {
         error = null
         try {
-            page = vm.artistPage(id)
+            val loaded = vm.artistPage(id)
+            page = loaded
+            // Then swap greatest-hits covers for the original albums' (takes a few extra requests).
+            val fixed = vm.withOriginalCovers(loaded.top)
+            if (fixed != loaded.top) page = loaded.copy(top = fixed)
         } catch (e: Exception) {
             if (e is kotlinx.coroutines.CancellationException) throw e
-            error = "Couldn't load this artist."
+            if (page == null) error = "Couldn't load this artist."
         }
     }
 
     Column(Modifier.fillMaxSize()) {
         TopAppBar(
             colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
-            title = { Text(page?.first?.name.orEmpty()) },
+            title = { Text(page?.artist?.name.orEmpty()) },
             navigationIcon = { IconButton(onClick = onBack) { Icon(Lucide.ArrowLeft, contentDescription = "Back") } },
         )
         val p = page
@@ -452,8 +478,9 @@ fun ArtistScreen(id: Long, vm: AppViewModel, actions: SongActions, onBack: () ->
             error != null -> CenteredMessage(error!!, "Retry") { reload++ }
             p == null -> Box(Modifier.fillMaxWidth().padding(48.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
             else -> {
-                val (artist, top, related) = p
+                val artist = p.artist
                 val following = favorites.any { it.id == artist.id }
+                val shown = if (showAllTop) p.top else p.top.take(TOP_PREVIEW)
                 LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
                     item {
                         Column(Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -467,13 +494,109 @@ fun ArtistScreen(id: Long, vm: AppViewModel, actions: SongActions, onBack: () ->
                             else Button(onClick = { vm.toggleFollow(artist) }) { Text("Follow") }
                         }
                     }
-                    item { PlayShuffleButtons(top, vm) }
+                    item { PlayShuffleButtons(p.top, vm) }
                     item { SectionHeader("Popular") }
-                    itemsIndexed(top, key = { _, s -> s.id }) { i, song -> SongRow(song, actions) { vm.play(top, i) } }
-                    if (related.isNotEmpty()) {
-                        item { SectionHeader("Fans also like") }
-                        item { ArtistRow(related) { actions.openArtist(it.id) } }
+                    itemsIndexed(shown, key = { _, s -> s.id }) { i, song -> SongRow(song, actions) { vm.play(p.top, i) } }
+                    if (p.top.size > TOP_PREVIEW) item {
+                        TextButton(onClick = { showAllTop = !showAllTop }, modifier = Modifier.padding(horizontal = 8.dp)) {
+                            Text(if (showAllTop) "Show less" else "Show all ${p.top.size}")
+                        }
                     }
+                    if (p.albums.isNotEmpty()) {
+                        item { SectionHeader("Albums", "${p.albums.size} releases") }
+                        item { AlbumRow(p.albums) { openAlbum(it.id) } }
+                    }
+                    if (p.singles.isNotEmpty()) {
+                        item { SectionHeader("Singles & EPs", "${p.singles.size} releases") }
+                        item { AlbumRow(p.singles) { openAlbum(it.id) } }
+                    }
+                    if (p.related.isNotEmpty()) {
+                        item { SectionHeader("Fans also like") }
+                        item { ArtistRow(p.related) { actions.openArtist(it.id) } }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private const val TOP_PREVIEW = 10
+
+@Composable
+private fun AlbumRow(albums: List<Album>, onClick: (Album) -> Unit) {
+    LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        items(albums, key = { it.id }) { album -> AlbumCard(album) { onClick(album) } }
+    }
+}
+
+@Composable
+private fun AlbumCard(album: Album, onClick: () -> Unit) {
+    Column(Modifier.width(150.dp).clip(RoundedCornerShape(10.dp)).clickable(onClick = onClick)) {
+        Cover(album.cover, Modifier.size(150.dp), corner = 10)
+        Spacer(Modifier.height(8.dp))
+        Text(album.title, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.SemiBold)
+        Text(albumSubtitle(album), maxLines = 1, style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+private fun albumSubtitle(album: Album): String {
+    val kind = when (album.type) {
+        "single" -> "Single"
+        "ep" -> "EP"
+        "compile" -> "Compilation"
+        else -> "Album"
+    }
+    return listOf(album.releaseDate.take(4), kind).filter { it.isNotBlank() }.joinToString(" · ")
+}
+
+// ---------------------------------------------------------------- album
+
+@Composable
+fun AlbumScreen(id: Long, vm: AppViewModel, actions: SongActions, onBack: () -> Unit) {
+    var page by remember(id) { mutableStateOf<Pair<Album, List<Song>>?>(null) }
+    var error by remember(id) { mutableStateOf<String?>(null) }
+    var reload by remember { mutableIntStateOf(0) }
+
+    LaunchedEffect(id, reload) {
+        error = null
+        try {
+            page = vm.albumPage(id)
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            error = "Couldn't load this album."
+        }
+    }
+
+    Column(Modifier.fillMaxSize()) {
+        TopAppBar(
+            colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
+            title = { Text(page?.first?.title.orEmpty(), maxLines = 1, overflow = TextOverflow.Ellipsis) },
+            navigationIcon = { IconButton(onClick = onBack) { Icon(Lucide.ArrowLeft, contentDescription = "Back") } },
+        )
+        val p = page
+        when {
+            error != null -> CenteredMessage(error!!, "Retry") { reload++ }
+            p == null -> Box(Modifier.fillMaxWidth().padding(48.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+            else -> {
+                val (album, songs) = p
+                LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
+                    item {
+                        Column(Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Cover(album.coverBig.ifEmpty { album.cover }, Modifier.size(220.dp), corner = 12)
+                            Spacer(Modifier.height(12.dp))
+                            Text(album.title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                            if (album.artist.isNotBlank()) {
+                                Text(album.artist, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Text("${albumSubtitle(album)} · ${songs.size} songs", style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    item { PlayShuffleButtons(songs, vm) }
+                    if (songs.isEmpty()) item { CenteredMessage("No playable songs on this release.") }
+                    itemsIndexed(songs, key = { _, s -> s.id }) { i, song -> SongRow(song, actions) { vm.play(songs, i) } }
                 }
             }
         }

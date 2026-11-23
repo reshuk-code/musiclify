@@ -70,6 +70,25 @@ data class Tombstone(val kind: String, val key: String, val at: Long)
 
 const val TOMB_SEP = '\u001f'
 
+/** A downloaded song with how much it's been listened to (for choosing what to remove). */
+data class DownloadUsage(
+    @Embedded val song: Song,
+    val lastPlayed: Long?,
+    val plays: Int,
+)
+
+data class SongPlays(
+    @Embedded val song: Song,
+    val plays: Int,
+)
+
+data class ArtistPlays(
+    val artistId: Long,
+    val artist: String,
+    val plays: Int,
+    val cover: String?,
+)
+
 data class PlaylistSummary(
     @Embedded val playlist: Playlist,
     val songCount: Int,
@@ -89,6 +108,10 @@ interface MusicDao {
     /** Blocking variant for the player's loader thread. */
     @Query("SELECT * FROM songs WHERE id = :id")
     fun songBlocking(id: Long): Song?
+
+    /** The original album's name and cover, found after the song was saved (see Deezer.originalRelease). */
+    @Query("UPDATE songs SET album = :album, cover = :cover, coverBig = :coverBig WHERE id = :id")
+    suspend fun setAlbumArt(id: Long, album: String, cover: String, coverBig: String)
 
     @Query("UPDATE songs SET youtubeId = :youtubeId WHERE id = :id")
     fun setYoutubeId(id: Long, youtubeId: String?)
@@ -124,6 +147,45 @@ interface MusicDao {
 
     @Query("DELETE FROM history")
     suspend fun clearHistory()
+
+    @Query("SELECT songId FROM history ORDER BY playedAt DESC LIMIT :limit")
+    suspend fun recentSongIds(limit: Int): List<Long>
+
+    @Query("SELECT * FROM songs WHERE id IN (:ids)")
+    suspend fun songsByIds(ids: List<Long>): List<Song>
+
+    // ---- listening stats ----
+    @Query(
+        """SELECT s.*, COUNT(h.id) AS plays FROM history h JOIN songs s ON s.id = h.songId
+           WHERE h.playedAt >= :since GROUP BY s.id ORDER BY plays DESC, MAX(h.playedAt) DESC LIMIT :limit"""
+    )
+    suspend fun topSongs(since: Long, limit: Int): List<SongPlays>
+
+    @Query(
+        """SELECT s.artistId AS artistId, s.artist AS artist, COUNT(h.id) AS plays, MAX(s.cover) AS cover
+           FROM history h JOIN songs s ON s.id = h.songId
+           WHERE h.playedAt >= :since GROUP BY s.artistId ORDER BY plays DESC LIMIT :limit"""
+    )
+    suspend fun topArtists(since: Long, limit: Int): List<ArtistPlays>
+
+    @Query("SELECT COALESCE(SUM(s.durationSec), 0) FROM history h JOIN songs s ON s.id = h.songId WHERE h.playedAt >= :since")
+    suspend fun secondsListened(since: Long): Long
+
+    @Query("SELECT COUNT(*) FROM history WHERE playedAt >= :since")
+    suspend fun playCount(since: Long): Int
+
+    @Query("SELECT COUNT(DISTINCT songId) FROM history WHERE playedAt >= :since")
+    suspend fun distinctSongCount(since: Long): Int
+
+    // ---- storage ----
+    /** Downloads, least recently played first (never-played ones at the top). */
+    @Query(
+        """SELECT s.*, MAX(h.playedAt) AS lastPlayed, COUNT(h.id) AS plays
+           FROM songs s LEFT JOIN history h ON h.songId = s.id
+           WHERE s.downloaded = 1 GROUP BY s.id
+           ORDER BY lastPlayed IS NOT NULL, lastPlayed ASC"""
+    )
+    suspend fun downloadUsage(): List<DownloadUsage>
 
     // ---- playlists ----
     @Insert

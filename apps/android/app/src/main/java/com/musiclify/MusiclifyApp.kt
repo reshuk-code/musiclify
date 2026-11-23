@@ -53,6 +53,7 @@ class Graph(context: Context) {
     val matchCache = MatchCache(http, BuildConfig.MATCH_CACHE_URL) { prefs.shareMatches }
     val resolver = YouTubeResolver(dao, matchCache)
     val engine = MediaEngine(context, keys, resolver, dao, http)
+    val importer = com.musiclify.data.PlaylistImporter(http, deezer)
 
     /** Lyrics for a song: the cached copy, or fetched from LRCLIB once and cached (NONE if there are none). */
     suspend fun lyricsFor(songId: Long): Lyrics {

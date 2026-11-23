@@ -66,6 +66,13 @@ class PlayerConnection(context: Context, private val scope: CoroutineScope) {
     var sleepAtSongEnd by mutableStateOf(false)
         private set
 
+    /** The queue was brought back from last time and hasn't been played yet ("continue listening"). */
+    var restored by mutableStateOf(false)
+        private set
+
+    /** Called once the connection to the playback service is ready. */
+    var onConnected: (() -> Unit)? = null
+
     private var sleepJob: Job? = null
 
     init {
@@ -87,6 +94,7 @@ class PlayerConnection(context: Context, private val scope: CoroutineScope) {
                 })
             }
             sync()
+            onConnected?.invoke()
         }, ContextCompat.getMainExecutor(context))
 
         scope.launch {
@@ -109,6 +117,7 @@ class PlayerConnection(context: Context, private val scope: CoroutineScope) {
         currentArtist = item?.mediaMetadata?.realArtist().orEmpty()
         currentArtwork = item?.mediaMetadata?.artworkUri?.toString()
         isPlaying = c.isPlaying
+        if (isPlaying) restored = false
         isBuffering = c.playbackState == Player.STATE_BUFFERING
         shuffle = c.shuffleModeEnabled
         repeatMode = c.repeatMode
@@ -129,6 +138,17 @@ class PlayerConnection(context: Context, private val scope: CoroutineScope) {
         c.setMediaItems(songs.map { it.toMediaItem() }, if (shuffled) songs.indices.random() else startIndex, 0)
         c.prepare()
         c.play()
+    }
+
+    /** Nothing is loaded in the player (fresh start). */
+    val isEmpty: Boolean get() = (controller?.mediaItemCount ?: 0) == 0
+
+    /** Load last session's queue without starting playback; Play continues from [positionMs]. */
+    fun restore(songs: List<Song>, index: Int, positionMs: Long) {
+        val c = controller ?: return
+        if (songs.isEmpty() || c.mediaItemCount > 0) return
+        c.setMediaItems(songs.map { it.toMediaItem() }, index.coerceIn(0, songs.size - 1), positionMs)
+        restored = true
     }
 
     fun playNext(song: Song) {
